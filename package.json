@@ -1,0 +1,22 @@
+{
+  "name": "basicflow",
+  "version": "1.0.0",
+  "description": "Um bot de registo e utilidades focado em UX, oferecido gratuitamente pela Flow Bots.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "registration",
+    "ticket"
+  ],
+  "author": "Flow Bots",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.13.0",
+    "dotenv-flow": "^4.1.0",
+    "pg": "^8.11.3"
+  }
+}
