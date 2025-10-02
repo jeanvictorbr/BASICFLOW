@@ -1,5 +1,5 @@
 // Ficheiro: views/config_views.js
-// Responsável pela aparência do painel de configuração.
+// Responsável pela aparência do painel de configuração (VERSÃO VERIFICADA).
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
