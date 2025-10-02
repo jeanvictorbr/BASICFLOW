@@ -6,15 +6,15 @@ const LOG_IMAGE_URL = 'https://i.imgur.com/YuK1aVN.gif'; // Definimos a URL aqui
 function getRegistrationPanelPayload() {
     const embed = new EmbedBuilder()
         .setColor(0x0099FF)
-        .setTitle('📝 Central de Registo')
+        .setTitle('📝 Central de Registro')
         .setDescription('Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo.')
         .setImage(LOG_IMAGE_URL) // IMAGEM ADICIONADA
-        .setFooter({ text: 'BasicFlow • Sistema de Registo' });
+        .setFooter({ text: 'BasicFlow • Sistema de Registro' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('initiate_registration')
-            .setLabel('Iniciar Registo')
+            .setLabel('Iniciar Registro')
             .setStyle(ButtonStyle.Primary)
             .setEmoji('📄')
     );
@@ -26,7 +26,7 @@ function getRegistrationPanelPayload() {
 function getRegistrationModal() {
     return new ModalBuilder()
         .setCustomId('registration_modal_submit')
-        .setTitle('Formulário de Registo')
+        .setTitle('Formulário de Registro')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
@@ -51,7 +51,7 @@ function getRegistrationModal() {
 function getRegistrationApprovalPayload(interaction, rpName, gameId) {
     const embed = new EmbedBuilder()
         .setColor(0xFFA500)
-        .setTitle('📥 Novo Pedido de Registo')
+        .setTitle('📥 Novo Pedido de Registro')
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
         .setImage(LOG_IMAGE_URL) // IMAGEM ADICIONADA
@@ -81,12 +81,12 @@ function getApprovalDmEmbed(guild, rpName, gameId, tag) {
     const nickname = tag ? `[${tag}] ${rpName} | ${gameId}` : `${rpName} | ${gameId}`;
     return new EmbedBuilder()
         .setColor(0x57F287)
-        .setTitle(`✅ Registo Aprovado em ${guild.name}!`)
+        .setTitle(`✅ Registro Aprovado em ${guild.name}!`)
         .setThumbnail(guild.iconURL())
         .setDescription('Bem-vindo(a) oficialmente à comunidade! A sua entrada foi validada pela nossa staff.')
         .addFields(
             { name: 'Seu novo nickname', value: `\`\`\`${nickname}\`\`\``, inline: false },
-            { name: 'Acesso Liberado', value: 'Você recebeu o cargo de membro registado e agora tem acesso aos canais restritos.', inline: false }
+            { name: 'Acesso Liberado', value: 'Você recebeu o cargo de membro registrado e agora tem acesso aos canais restritos.', inline: false }
         )
         .setFooter({ text: `Servidor: ${guild.name}` })
         .setTimestamp();
@@ -98,7 +98,7 @@ function getRejectionDmEmbed(guild) {
         .setColor(0xED4245)
         .setTitle(`❌ Registo Rejeitado em ${guild.name}`)
         .setThumbnail(guild.iconURL())
-        .setDescription('O seu pedido de registo foi analisado pela nossa staff e infelizmente foi rejeitado.\n\nSe acredita que foi um engano, pode tentar submeter um novo registo ou contactar um membro da staff para mais detalhes.')
+        .setDescription('O seu pedido de registro foi analisado pela nossa staff e infelizmente foi rejeitado.\n\nSe acredita que foi um engano, pode tentar submeter um novo registo ou contactar um membro da staff para mais detalhes.')
         .setFooter({ text: `Servidor: ${guild.name}` })
         .setTimestamp();
 }

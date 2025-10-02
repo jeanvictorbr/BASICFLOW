@@ -1,6 +1,5 @@
 const db = require('./db.js');
 
-// O esquema original, apenas para referência e criação inicial
 const createTablesSQL = `
     CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id VARCHAR(255) PRIMARY KEY,
@@ -39,27 +38,30 @@ const createTablesSQL = `
     );
 `;
 
-// NOVA LÓGICA PARA VERIFICAR E ADICIONAR COLUNAS EM FALTA
+// Função que verifica e adiciona colunas que estejam em falta
 async function checkAndAlterTables() {
-    try {
-        // Verifica se a coluna nickname_tag existe
-        const res = await db.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name='guild_settings' AND column_name='nickname_tag'
-        `);
-        
-        // Se a consulta não retornar linhas, a coluna não existe
-        if (res.rowCount === 0) {
-            console.log('[DATABASE] Coluna "nickname_tag" não encontrada. Adicionando...');
-            await db.query('ALTER TABLE guild_settings ADD COLUMN nickname_tag VARCHAR(16)');
-            console.log('[DATABASE] Coluna "nickname_tag" adicionada com sucesso.');
-        }
-    } catch (error) {
-        // Ignora o erro se a tabela ainda não existir (será criada a seguir)
-        if (error.code !== '42P01') {
-            console.error('[DATABASE] Erro ao verificar/alterar a tabela guild_settings:', error);
-            throw error; // Lança o erro para parar a inicialização se for um problema sério
+    const columns = {
+        'nickname_tag': 'VARCHAR(16)',
+        'registration_panel_image_url': 'TEXT' // Nova coluna
+    };
+
+    for (const [column, type] of Object.entries(columns)) {
+        try {
+            const res = await db.query(`
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='guild_settings' AND column_name=$1
+            `, [column]);
+            
+            if (res.rowCount === 0) {
+                console.log(`[DATABASE] Coluna "${column}" não encontrada. Adicionando...`);
+                await db.query(`ALTER TABLE guild_settings ADD COLUMN ${column} ${type}`);
+                console.log(`[DATABASE] Coluna "${column}" adicionada com sucesso.`);
+            }
+        } catch (error) {
+            if (error.code !== '42P01') { // Ignora erro "table does not exist"
+                console.error(`[DATABASE] Erro ao verificar/alterar a coluna ${column}:`, error);
+                throw error;
+            }
         }
     }
 }
@@ -67,13 +69,8 @@ async function checkAndAlterTables() {
 async function initializeDatabase() {
     try {
         console.log('[DATABASE] Verificando o esquema do banco de dados...');
-        
-        // Primeiro, garante que as tabelas base existem
         await db.query(createTablesSQL);
-        
-        // Depois, verifica e adiciona colunas em falta
         await checkAndAlterTables();
-        
         console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
     } catch (error) {
         console.error('[DATABASE] Erro crítico ao inicializar o banco de dados:', error);
@@ -82,3 +79,4 @@ async function initializeDatabase() {
 }
 
 module.exports = { initializeDatabase };
+
