@@ -1,12 +1,14 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
-// Painel público (sem alterações)
+const LOG_IMAGE_URL = 'https://i.imgur.com/YuK1aVN.gif'; // Definimos a URL aqui para ser fácil de alterar
+
+// Painel público que os membros verão
 function getRegistrationPanelPayload() {
     const embed = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('📝 Central de Registo')
-        .setDescription('Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo. Você precisará fornecer algumas informações básicas.')
-        .setImage('https://placehold.co/1200x400/0099FF/FFFFFF/png?text=BEM-VINDO(A)!)')
+        .setDescription('Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo.')
+        .setImage(LOG_IMAGE_URL) // IMAGEM ADICIONADA
         .setFooter({ text: 'BasicFlow • Sistema de Registo' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -20,7 +22,7 @@ function getRegistrationPanelPayload() {
     return { embeds: [embed], components: [row] };
 }
 
-// Modal (sem alterações)
+// Formulário (modal) que aparece ao clicar no botão
 function getRegistrationModal() {
     return new ModalBuilder()
         .setCustomId('registration_modal_submit')
@@ -45,15 +47,14 @@ function getRegistrationModal() {
         );
 }
 
-// Mensagem de aprovação para a staff (MODIFICADA)
+// Mensagem enviada para o canal da staff para aprovação
 function getRegistrationApprovalPayload(interaction, rpName, gameId) {
     const embed = new EmbedBuilder()
         .setColor(0xFFA500)
         .setTitle('📥 Novo Pedido de Registo')
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-        // ADIÇÃO DO THUMBNAIL DO UTILIZADOR
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
-        .setImage('https://i.imgur.com/YuK1aVN.gif') // Use o link da sua imagem aqui
+        .setImage(LOG_IMAGE_URL) // IMAGEM ADICIONADA
         .addFields(
             { name: '👤 Utilizador', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
             { name: '📝 Nome RP', value: `\`\`\`${rpName}\`\`\``, inline: true },
@@ -74,6 +75,8 @@ function getRegistrationApprovalPayload(interaction, rpName, gameId) {
 
     return { embeds: [embed], components: [row] };
 }
+
+// Função para gerar a embed de DM de aprovação
 function getApprovalDmEmbed(guild, rpName, gameId, tag) {
     const nickname = tag ? `[${tag}] ${rpName} | ${gameId}` : `${rpName} | ${gameId}`;
     return new EmbedBuilder()
@@ -100,11 +103,10 @@ function getRejectionDmEmbed(guild) {
         .setTimestamp();
 }
 
-
 module.exports = {
     getRegistrationPanelPayload,
     getRegistrationModal,
     getRegistrationApprovalPayload,
     getApprovalDmEmbed,
-    getRejectionDmEmbed
+    getRejectionDmEmbed,
 };
