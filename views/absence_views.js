@@ -1,16 +1,20 @@
 // Ficheiro: views/absence_views.js
-// Responsável pela aparência do sistema de ausências (painel, formulário e log).
+// Atualizado para usar imagens dinâmicas e padronizadas.
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const db = require('../database/db.js');
 
-const ABSENCE_IMAGE_URL = 'https://placehold.co/1200x400/3498db/FFFFFF/png?text=Central+de+Aus%C3%AAncias';
+const BOT_LOG_IMAGE_URL = 'https://i.imgur.com/YuK1aVN.gif';
 
-function getAbsencePanelPayload() {
+async function getAbsencePanelPayload(guildId) {
+    const settings = await db.get('SELECT absence_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
+    const imageUrl = settings?.absence_panel_image_url || BOT_LOG_IMAGE_URL;
+
     const embed = new EmbedBuilder()
         .setColor(0x3498DB)
         .setTitle('🏝️ Central de Ausências')
         .setDescription('Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente para evitar ser removido por inatividade.')
-        .setImage(ABSENCE_IMAGE_URL)
+        .setImage(imageUrl)
         .setFooter({ text: 'BasicFlow • Sistema de Ausências' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -20,7 +24,6 @@ function getAbsencePanelPayload() {
             .setStyle(ButtonStyle.Primary)
             .setEmoji('🗓️')
     );
-
     return { embeds: [embed], components: [row] };
 }
 
@@ -62,6 +65,7 @@ function getAbsenceApprovalPayload(interaction, startDate, endDate, reason) {
         .setTitle('📥 Novo Pedido de Ausência')
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
+        .setImage(BOT_LOG_IMAGE_URL)
         .addFields(
             { name: '👤 Utilizador', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
             { name: '🗓️ Período', value: `De \`${startDate}\` até \`${endDate}\``, inline: false },
@@ -79,13 +83,7 @@ function getAbsenceApprovalPayload(interaction, startDate, endDate, reason) {
             .setLabel('Rejeitar')
             .setStyle(ButtonStyle.Danger)
     );
-
     return { embeds: [embed], components: [row] };
 }
 
-
-module.exports = {
-    getAbsencePanelPayload,
-    getAbsenceModal,
-    getAbsenceApprovalPayload
-};
+module.exports = { getAbsencePanelPayload, getAbsenceModal, getAbsenceApprovalPayload };

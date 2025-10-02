@@ -29,7 +29,9 @@ async function checkAndAlterTables() {
         'registration_panel_image_url': 'TEXT',
         'ticket_category_id': 'VARCHAR(255)',
         'support_role_id': 'VARCHAR(255)',
-        'ticket_log_channel_id': 'VARCHAR(255)'
+        'ticket_log_channel_id': 'VARCHAR(255)',
+        'absence_panel_image_url': 'TEXT', // NOVA COLUNA
+        'ticket_panel_image_url': 'TEXT'    // NOVA COLUNA
     };
 
     const ticketsColumns = {

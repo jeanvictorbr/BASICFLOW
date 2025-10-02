@@ -39,6 +39,8 @@ async function getConfigDashboardPayload(guild) {
             { name: 'Registo: Imagem do Painel', value: formatImageSetting(settings, 'registration_panel_image_url'), inline: true },
             { name: 'Ticket: Categoria', value: formatSetting(settings, 'ticket_category_id', 'channel'), inline: true },
             { name: 'Ticket: Cargo de Suporte', value: formatSetting(settings, 'support_role_id', 'role'), inline: true },
+            { name: 'Ausência: Imagem do Painel', value: formatImageSetting(settings, 'absence_panel_image_url'), inline: true }, // NOVO
+            { name: 'Ticket: Imagem do Painel', value: formatImageSetting(settings, 'ticket_panel_image_url'), inline: true }, // NOVO
             { name: 'Ticket: Canal de Logs', value: formatSetting(settings, 'ticket_log_channel_id', 'channel'), inline: true },
         )
         .setFooter({ text: 'Powered by BasicFlow • Conheça as versões completas: Police Flow & Faction Flow!' });
@@ -54,9 +56,9 @@ async function getConfigDashboardPayload(guild) {
         new ButtonBuilder().setCustomId('config_set_support_role').setLabel('Ticket: Suporte').setStyle(ButtonStyle.Secondary),
     );
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_set_nickname_tag').setLabel('Registo: TAG').setStyle(ButtonStyle.Secondary).setEmoji('🏷️'),
-        new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Registo: Imagem').setStyle(ButtonStyle.Secondary).setEmoji('🖼️'),
-        new ButtonBuilder().setCustomId('config_set_ticket_log_channel').setLabel('Ticket: Logs').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Registo: Imagem').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_absence_image').setLabel('Ausência: Imagem').setStyle(ButtonStyle.Secondary), // NOVO
+        new ButtonBuilder().setCustomId('config_set_ticket_image').setLabel('Ticket: Imagem').setStyle(ButtonStyle.Secondary),   // NOVO
     );
     const row4 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_publish_registration_panel').setLabel('Publicar Registo').setStyle(ButtonStyle.Success),
