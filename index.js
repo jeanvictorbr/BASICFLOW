@@ -1,16 +1,29 @@
 // Ficheiro: index.js
-// Ponto de entrada principal do bot (VERSÃO DE DEPURAÇÃO)
+// Ponto de entrada principal do bot (VERSÃO DE DIAGNÓSTICO)
 
 const { Client, GatewayIntentBits, Collection, Events, REST, Routes } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv-flow').config();
 
+// DETETOR DE ERROS GLOBAIS - Para garantir que nenhum erro passe despercebido
+process.on('unhandledRejection', error => {
+	console.error('ERRO GLOBAL NÃO TRATADO:', error);
+});
+process.on('uncaughtException', error => {
+	console.error('EXCEÇÃO GLOBAL NÃO TRATADA:', error);
+});
+
 const { initializeDatabase } = require('./database/schema.js');
 const masterHandler = require('./interactions/handler.js');
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
+
+if (!DISCORD_TOKEN || !CLIENT_ID) {
+    console.error("[ERRO CRÍTICO] As variáveis DISCORD_TOKEN ou CLIENT_ID não foram definidas no ficheiro .env. A encerrar.");
+    process.exit(1);
+}
 
 const client = new Client({
     intents: [
@@ -30,6 +43,7 @@ async function startBot() {
 }
 
 function loadCommands(dir) {
+    console.log(`[INFO] A carregar comandos de: ${dir}`);
     if (!fs.existsSync(dir)) return;
     const files = fs.readdirSync(dir).filter(file => file.endsWith('.js'));
     for (const file of files) {
@@ -46,24 +60,31 @@ function loadCommands(dir) {
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
-    // LOG DE DEPURAÇÃO ADICIONADO AQUI
-    console.log(`[DEBUG] Nova interação recebida. Tipo: ${interaction.type}. ID do Comando/Componente: ${interaction.isCommand() ? interaction.commandName : interaction.customId}`);
+    console.log(`[DIAGNÓSTICO] Interação recebida. Tipo: ${interaction.type}.`);
+
+    if (!interaction.isChatInputCommand()) {
+        await masterHandler.execute(interaction);
+        return;
+    }
+
+    console.log(`[DIAGNÓSTICO] É um comando de chat: /${interaction.commandName}`);
+    const command = client.commands.get(interaction.commandName);
+    if (!command) {
+        console.error(`[ERRO] Comando "/${interaction.commandName}" não encontrado.`);
+        return;
+    }
 
     try {
-        if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
-            if (!command) return;
-            await command.execute(interaction);
-        } else {
-            await masterHandler.execute(interaction);
-        }
+        console.log(`[DIAGNÓSTICO] A executar o comando "/${interaction.commandName}"...`);
+        await command.execute(interaction);
+        console.log(`[DIAGNÓSTICO] Execução de "/${interaction.commandName}" terminada.`);
     } catch (error) {
-        console.error('Erro geral ao processar interação:', error);
-        const replyPayload = { content: '❌ Houve um erro crítico ao processar esta ação.', ephemeral: true };
+        console.error(`[ERRO] Erro ao executar o comando "/${interaction.commandName}":`, error);
+        const replyPayload = { content: '❌ Houve um erro crítico ao executar este comando.', ephemeral: true };
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(replyPayload).catch(() => {});
+            await interaction.followUp(replyPayload).catch(console.error);
         } else {
-            await interaction.reply(replyPayload).catch(() => {});
+            await interaction.reply(replyPayload).catch(console.error);
         }
     }
 });

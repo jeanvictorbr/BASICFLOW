@@ -1,8 +1,7 @@
 // Ficheiro: commands/configurar.js
-// Responsável por iniciar o painel de administração.
+// Responsável por iniciar o painel de administração (VERSÃO DE TESTE SIMPLIFICADA)
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { getConfigDashboardPayload } = require('../views/config_views.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,18 +10,18 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
         
     async execute(interaction) {
-        // ESTA É A LINHA MAIS IMPORTANTE
-        // Ela responde imediatamente ao Discord para evitar o erro "Integração desconhecida".
-        // A flag 64 torna a resposta visível apenas para si.
-        await interaction.deferReply({ flags: 64 });
-
+        console.log('[DIAGNÓSTICO] Dentro do execute de /configurar.');
         try {
-            // Depois de deferir, podemos demorar o tempo que for preciso para buscar os dados.
-            const payload = await getConfigDashboardPayload(interaction.guild);
-            await interaction.editReply(payload);
+            // Teste 1: Tenta adiar a resposta.
+            await interaction.deferReply({ flags: 64 });
+            console.log('[DIAGNÓSTICO] deferReply() executado com sucesso.');
+            
+            // Teste 2: Envia uma mensagem de texto simples.
+            await interaction.editReply({ content: 'Teste de diagnóstico bem-sucedido!' });
+            console.log('[DIAGNÓSTICO] editReply() executado com sucesso.');
+
         } catch (error) {
-            console.error("Erro ao carregar o painel de configuração:", error);
-            await interaction.editReply({ content: '❌ Ocorreu um erro crítico ao carregar o painel de configuração.' });
+            console.error("[DIAGNÓSTICO] ERRO no comando de teste /configurar:", error);
         }
     },
 };
