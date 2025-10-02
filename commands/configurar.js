@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, InteractionResponse } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getConfigDashboardPayload } = require('../views/config_views.js');
 const db = require('../database/db.js');
 
@@ -9,10 +9,13 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
         
     async execute(interaction) {
-        // A flag 64 torna a resposta apenas visível para o utilizador
+        // CORREÇÃO: Adicionamos esta linha no início.
+        // Ela responde ao Discord imediatamente, evitando o erro de timeout.
+        // A flag 64 torna a resposta visível apenas para quem usou o comando.
         await interaction.deferReply({ flags: 64 });
 
         try {
+            // Agora, mesmo que esta função demore, o Discord já sabe que estamos a processar.
             const payload = await getConfigDashboardPayload(interaction.guild);
             await interaction.editReply(payload);
         } catch (error) {
@@ -21,3 +24,4 @@ module.exports = {
         }
     },
 };
+
