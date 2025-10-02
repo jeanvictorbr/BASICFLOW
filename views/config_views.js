@@ -1,3 +1,6 @@
+// Ficheiro: views/config_views.js
+// Responsável pela aparência do painel de configuração.
+
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -74,4 +77,3 @@ async function getConfigDashboardPayload(guild) {
 module.exports = {
     getConfigDashboardPayload,
 };
-
