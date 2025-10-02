@@ -53,6 +53,7 @@ function getRegistrationApprovalPayload(interaction, rpName, gameId) {
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
         // ADIÇÃO DO THUMBNAIL DO UTILIZADOR
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
+        .setImage('https://i.imgur.com/YuK1aVN.gif') // Use o link da sua imagem aqui
         .addFields(
             { name: '👤 Utilizador', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
             { name: '📝 Nome RP', value: `\`\`\`${rpName}\`\`\``, inline: true },
