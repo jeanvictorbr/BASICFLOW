@@ -1,9 +1,11 @@
+// Ficheiro: index.js
+// Ponto de entrada principal do bot (VERSÃO DE DEPURAÇÃO)
+
 const { Client, GatewayIntentBits, Collection, Events, REST, Routes } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv-flow').config();
 
-// IMPORTAÇÃO DOS MÓDULOS QUE VAMOS CRIAR
 const { initializeDatabase } = require('./database/schema.js');
 const masterHandler = require('./interactions/handler.js');
 
@@ -44,13 +46,15 @@ function loadCommands(dir) {
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {
+    // LOG DE DEPURAÇÃO ADICIONADO AQUI
+    console.log(`[DEBUG] Nova interação recebida. Tipo: ${interaction.type}. ID do Comando/Componente: ${interaction.isCommand() ? interaction.commandName : interaction.customId}`);
+
     try {
         if (interaction.isChatInputCommand()) {
             const command = client.commands.get(interaction.commandName);
             if (!command) return;
             await command.execute(interaction);
         } else {
-            // Entrega todas as outras interações (botões, menus, etc.) para o handler principal
             await masterHandler.execute(interaction);
         }
     } catch (error) {
@@ -76,7 +80,6 @@ async function registerSlashCommands() {
         console.log('[INFO] A registar comandos (/) globais...');
         const commandsToDeploy = client.commands.map(command => command.data.toJSON());
         
-        // Regista os comandos globalmente para todas as guilds
         await rest.put(
             Routes.applicationCommands(CLIENT_ID),
             { body: commandsToDeploy }
