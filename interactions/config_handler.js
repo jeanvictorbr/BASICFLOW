@@ -1,8 +1,9 @@
-const { ActionRowBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ComponentType, ChannelType } = require('discord.js');
+const { ActionRowBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ComponentType, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const db = require('../database/db.js');
 const { getConfigDashboardPayload } = require('../views/config_views.js');
 const { getRegistrationPanelPayload } = require('../views/registration_views.js');
 
+// Mapeia os IDs dos botões mais antigos para a sua configuração na base de dados
 const configMap = {
     'config_set_registration_channel': { dbKey: 'registration_channel_id', type: 'channel' },
     'config_set_absence_channel': { dbKey: 'absence_channel_id', type: 'channel' },
@@ -14,15 +15,58 @@ const configHandler = {
     customId: (id) => id.startsWith('config_'),
 
     async execute(interaction) {
-        // CORREÇÃO: Adicionamos esta linha para evitar o timeout.
+        // Responde imediatamente ao Discord para evitar o erro "Esta interação falhou"
         await interaction.deferUpdate();
         
         const { customId } = interaction;
 
+        // LÓGICA PARA DEFINIR A TAG DE NICKNAME
+        if (customId === 'config_set_nickname_tag') {
+            const tagModal = new ModalBuilder()
+                .setCustomId('set_tag_modal')
+                .setTitle('Definir TAG de Nickname')
+                .addComponents(new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('tag_input')
+                        .setLabel('Insira a TAG (sem colchetes)')
+                        .setPlaceholder('Ex: OFC, GNR, etc.')
+                        .setStyle(TextInputStyle.Short)
+                        .setMaxLength(10)
+                        .setRequired(true)
+                ));
+            
+            // Mostra o formulário modal ao administrador
+            await interaction.showModal(tagModal);
+
+            const filter = (i) => i.customId === 'set_tag_modal' && i.user.id === interaction.user.id;
+            
+            try {
+                // Aguarda o administrador submeter o formulário
+                const modalInteraction = await interaction.awaitModalSubmit({ filter, time: 60000 });
+                const tag = modalInteraction.fields.getTextInputValue('tag_input');
+
+                // Guarda a TAG na base de dados
+                await db.run(
+                    `INSERT INTO guild_settings (guild_id, nickname_tag) VALUES ($1, $2)
+                     ON CONFLICT (guild_id) DO UPDATE SET nickname_tag = $2`,
+                    [interaction.guildId, tag]
+                );
+                
+                await modalInteraction.deferUpdate();
+                const payload = await getConfigDashboardPayload(interaction.guild);
+                await interaction.editReply(payload); // Atualiza o painel original com a nova TAG
+
+            } catch (err) {
+                 // Acontece se o admin não preencher o formulário em 60 segundos
+                 await interaction.editReply({ content: 'A definição da TAG expirou.', components: [], embeds: [] }).catch(() => {});
+            }
+            return;
+        }
+
+        // LÓGICA PARA PUBLICAR O PAINEL DE REGISTO
         if (customId === 'config_publish_registration_panel') {
             const settings = await db.get('SELECT registration_channel_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
             if (!settings?.registration_channel_id) {
-                // Usamos editReply porque já adiamos a resposta.
                 return interaction.editReply({ content: '❌ **Ação bloqueada:**\n> Você precisa definir um "Canal de Aprovação (Registos)" antes de poder publicar o painel.', embeds: [], components: [] });
             }
 
@@ -48,13 +92,13 @@ const configHandler = {
                 if (targetChannel) {
                     const panelPayload = getRegistrationPanelPayload();
                     await targetChannel.send(panelPayload);
-                    // Aqui usamos i.update() porque é a primeira resposta a essa nova interação (a seleção do menu)
                     await i.update({ content: `✅ Painel de registo publicado com sucesso em ${targetChannel}!`, components: [], embeds: [] });
                 }
             });
             return;
         }
 
+        // LÓGICA ANTIGA PARA CONFIGURAR CANAIS E CARGOS
         const config = configMap[customId];
         if (!config) return;
 
@@ -76,7 +120,6 @@ const configHandler = {
             menu.setCustomId('config_select_menu').setPlaceholder(placeholder)
         );
         
-        // Usamos editReply aqui também.
         const response = await interaction.editReply({ content: `Por favor, selecione o ${config.type === 'channel' ? 'canal' : 'cargo'} desejado no menu abaixo.`, components: [selectMenu], embeds: [], fetchReply: true });
 
         const collector = response.createMessageComponentCollector({
@@ -96,7 +139,6 @@ const configHandler = {
             );
 
             const payload = await getConfigDashboardPayload(i.guild);
-            // i.update() é o correto aqui para a interação do menu.
             await i.update(payload);
         });
 

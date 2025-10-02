@@ -43,6 +43,14 @@ const schemaSQL = `
         channel_id VARCHAR(255) NOT NULL,
         is_open BOOLEAN DEFAULT TRUE
     );
+        -- Tabela para o sistema de tickets simples
+    CREATE TABLE IF NOT EXISTS tickets (
+        ticket_id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        channel_id VARCHAR(255) NOT NULL,
+        is_open BOOLEAN DEFAULT TRUE
+    );
 `;
 
 async function initializeDatabase() {

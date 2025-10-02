@@ -1,7 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
 
-// Função para formatar o status de uma configuração (sem alterações)
 const formatSetting = (settings, key, type) => {
     const id = settings?.[key];
     if (id) {
@@ -10,7 +9,15 @@ const formatSetting = (settings, key, type) => {
     return '❌ `Não definido`';
 };
 
-// Monta o painel de configuração principal
+// NOVA FUNÇÃO para formatar a tag
+const formatTagSetting = (settings, key) => {
+    const tag = settings?.[key];
+    if (tag) {
+        return `✅ \`[${tag}]\``;
+    }
+    return '❌ `Não definida`';
+}
+
 async function getConfigDashboardPayload(guild) {
     const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
 
@@ -21,6 +28,7 @@ async function getConfigDashboardPayload(guild) {
         .addFields(
             { name: 'Canal de Aprovação (Registos)', value: formatSetting(settings, 'registration_channel_id', 'channel'), inline: true },
             { name: 'Canal de Ausências', value: formatSetting(settings, 'absence_channel_id', 'channel'), inline: true },
+            { name: 'TAG de Nickname', value: formatTagSetting(settings, 'nickname_tag'), inline: true },
             { name: 'Cargo de Membro Registado', value: formatSetting(settings, 'registered_role_id', 'role'), inline: true },
             { name: 'Cargo de Membro Ausente', value: formatSetting(settings, 'absence_role_id', 'role'), inline: true },
         )
@@ -28,7 +36,9 @@ async function getConfigDashboardPayload(guild) {
     
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_set_registration_channel').setLabel('Canal de Registos').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Canal de Ausências').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Canal de Ausências').setStyle(ButtonStyle.Secondary),
+        // NOVO BOTÃO AQUI
+        new ButtonBuilder().setCustomId('config_set_nickname_tag').setLabel('Definir TAG').setStyle(ButtonStyle.Secondary).setEmoji('🏷️'),
     );
     
     const row2 = new ActionRowBuilder().addComponents(
@@ -36,7 +46,6 @@ async function getConfigDashboardPayload(guild) {
         new ButtonBuilder().setCustomId('config_set_absence_role').setLabel('Cargo de Ausente').setStyle(ButtonStyle.Secondary)
     );
 
-    // NOVA LINHA DE BOTÕES PARA PUBLICAR OS PAINÉIS
     const row3 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('config_publish_registration_panel')
@@ -51,4 +60,3 @@ async function getConfigDashboardPayload(guild) {
 module.exports = {
     getConfigDashboardPayload,
 };
-

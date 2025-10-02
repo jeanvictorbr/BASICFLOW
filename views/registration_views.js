@@ -73,9 +73,37 @@ function getRegistrationApprovalPayload(interaction, rpName, gameId) {
 
     return { embeds: [embed], components: [row] };
 }
+function getApprovalDmEmbed(guild, rpName, gameId, tag) {
+    const nickname = tag ? `[${tag}] ${rpName} | ${gameId}` : `${rpName} | ${gameId}`;
+    return new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle(`✅ Registo Aprovado em ${guild.name}!`)
+        .setThumbnail(guild.iconURL())
+        .setDescription('Bem-vindo(a) oficialmente à comunidade! A sua entrada foi validada pela nossa staff.')
+        .addFields(
+            { name: 'Seu novo nickname', value: `\`\`\`${nickname}\`\`\``, inline: false },
+            { name: 'Acesso Liberado', value: 'Você recebeu o cargo de membro registado e agora tem acesso aos canais restritos.', inline: false }
+        )
+        .setFooter({ text: `Servidor: ${guild.name}` })
+        .setTimestamp();
+}
+
+// Função para gerar a embed de DM de rejeição
+function getRejectionDmEmbed(guild) {
+     return new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle(`❌ Registo Rejeitado em ${guild.name}`)
+        .setThumbnail(guild.iconURL())
+        .setDescription('O seu pedido de registo foi analisado pela nossa staff e infelizmente foi rejeitado.\n\nSe acredita que foi um engano, pode tentar submeter um novo registo ou contactar um membro da staff para mais detalhes.')
+        .setFooter({ text: `Servidor: ${guild.name}` })
+        .setTimestamp();
+}
+
 
 module.exports = {
     getRegistrationPanelPayload,
     getRegistrationModal,
-    getRegistrationApprovalPayload
+    getRegistrationApprovalPayload,
+    getApprovalDmEmbed,
+    getRejectionDmEmbed
 };
