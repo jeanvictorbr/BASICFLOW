@@ -1,5 +1,5 @@
 // Ficheiro: interactions/handler.js
-// Responsável por carregar e distribuir TODAS as interações.
+// Responsável por carregar e distribuir TODAS as interações (botões, menus, etc.).
 
 const { Collection } = require('discord.js');
 const fs = require('node:fs');
@@ -19,7 +19,7 @@ function loadHandlers(dir) {
         } else if (file.name.endsWith('.js') && file.name !== 'handler.js') {
             try {
                 const requiredModule = require(fullPath);
-                // CORREÇÃO: Garante que ele consegue carregar módulos que exportam um ou vários handlers.
+                // Esta lógica garante que ele consegue carregar módulos que exportam um ou vários handlers.
                 const handlers = Array.isArray(requiredModule) ? requiredModule : [requiredModule];
 
                 for (const handler of handlers) {
@@ -39,7 +39,6 @@ function loadHandlers(dir) {
 
 async function execute(interaction) {
     const key = interaction.customId;
-    // CORREÇÃO: Otimizado para procurar handlers de forma mais eficiente.
     let handler = componentHandlers.get(key);
     if (!handler) {
         for (const funcHandler of functionHandlers) {
