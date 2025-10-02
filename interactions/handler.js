@@ -1,5 +1,5 @@
 // Ficheiro: interactions/handler.js
-// Responsável por carregar e distribuir todas as interações (botões, menus, etc.).
+// Responsável por carregar e distribuir TODAS as interações.
 
 const { Collection } = require('discord.js');
 const fs = require('node:fs');
@@ -19,7 +19,7 @@ function loadHandlers(dir) {
         } else if (file.name.endsWith('.js') && file.name !== 'handler.js') {
             try {
                 const requiredModule = require(fullPath);
-                // Verifica se o módulo exporta um array de handlers ou um único handler.
+                // CORREÇÃO: Garante que ele consegue carregar módulos que exportam um ou vários handlers.
                 const handlers = Array.isArray(requiredModule) ? requiredModule : [requiredModule];
 
                 for (const handler of handlers) {
@@ -39,7 +39,17 @@ function loadHandlers(dir) {
 
 async function execute(interaction) {
     const key = interaction.customId;
-    let handler = componentHandlers.get(key) || functionHandlers.find(h => h.customId(key));
+    // CORREÇÃO: Otimizado para procurar handlers de forma mais eficiente.
+    let handler = componentHandlers.get(key);
+    if (!handler) {
+        for (const funcHandler of functionHandlers) {
+            if (funcHandler.customId(key)) {
+                handler = funcHandler;
+                break;
+            }
+        }
+    }
+    
     if (!handler) {
         return console.error(`[MASTER_HANDLER] Nenhum handler encontrado para a interação: ${key}`);
     }
@@ -48,8 +58,12 @@ async function execute(interaction) {
         await handler.execute(interaction);
     } catch(error) {
         console.error(`[HANDLER_EXECUTE_ERROR] Erro ao executar o handler para ${key}:`, error);
+        if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({ content: '❌ Ocorreu um erro ao processar esta ação.', ephemeral: true }).catch(() => {});
+        } else {
+            await interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação.', ephemeral: true }).catch(() => {});
+        }
     }
 }
 
 module.exports = { loadHandlers, execute };
-
