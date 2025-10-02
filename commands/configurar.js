@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, InteractionResponse } = require('discord.js');
 const { getConfigDashboardPayload } = require('../views/config_views.js');
 const db = require('../database/db.js');
 
@@ -9,15 +9,15 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
         
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        // A flag 64 torna a resposta apenas visível para o utilizador
+        await interaction.deferReply({ flags: 64 });
 
         try {
-            // A função getConfigDashboardPayload irá buscar os dados e montar a embed
             const payload = await getConfigDashboardPayload(interaction.guild);
             await interaction.editReply(payload);
         } catch (error) {
             console.error("Erro ao carregar o painel de configuração:", error);
-            await interaction.editReply('❌ Ocorreu um erro ao carregar o painel de configuração.');
+            await interaction.editReply({ content: '❌ Ocorreu um erro ao carregar o painel de configuração.' });
         }
     },
 };
