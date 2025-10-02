@@ -26,29 +26,14 @@ const openTicketHandler = {
                 type: ChannelType.GuildText,
                 parent: settings.ticket_category_id,
                 permissionOverwrites: [
-                    {
-                        id: interaction.guild.id, // @everyone
-                        deny: [PermissionFlagsBits.ViewChannel],
-                    },
-                    {
-                        id: interaction.user.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory],
-                    },
-                    {
-                        id: settings.support_role_id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-                    },
-                    {
-                        id: interaction.client.user.id, // O próprio bot
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels],
-                    },
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: settings.support_role_id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels] },
                 ],
             });
 
-            await db.run(
-                'INSERT INTO tickets (guild_id, user_id, channel_id) VALUES ($1, $2, $3)',
-                [interaction.guildId, interaction.user.id, channel.id]
-            );
+            await db.run('INSERT INTO tickets (guild_id, user_id, channel_id) VALUES ($1, $2, $3)', [interaction.guildId, interaction.user.id, channel.id]);
 
             const welcomePayload = getTicketChannelWelcomePayload(interaction.user, settings.support_role_id);
             await channel.send(welcomePayload);
@@ -66,21 +51,10 @@ const closeTicketPromptHandler = {
     customId: 'close_ticket_prompt',
     async execute(interaction) {
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`confirm_close_ticket:${interaction.channelId}`)
-                .setLabel('Confirmar Fecho')
-                .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-                .setCustomId('cancel_close')
-                .setLabel('Cancelar')
-                .setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder().setCustomId(`confirm_close_ticket:${interaction.channelId}`).setLabel('Confirmar Fecho').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('cancel_close').setLabel('Cancelar').setStyle(ButtonStyle.Secondary)
         );
-
-        await interaction.reply({
-            content: 'Você tem a certeza de que deseja fechar este ticket? Esta ação não pode ser desfeita.',
-            components: [row],
-            ephemeral: true,
-        });
+        await interaction.reply({ content: 'Você tem a certeza de que deseja fechar este ticket? Esta ação não pode ser desfeita.', components: [row], ephemeral: true });
     }
 };
 
@@ -88,20 +62,12 @@ const confirmCloseTicketHandler = {
     customId: (id) => id.startsWith('confirm_close_ticket:'),
     async execute(interaction) {
         await interaction.update({ content: '🔒 A fechar o ticket em 5 segundos...', components: [] });
-
         const ticket = await db.get('SELECT * FROM tickets WHERE channel_id = $1 AND is_open = TRUE', [interaction.channelId]);
-        if (!ticket) {
-            return interaction.followUp({ content: 'Este canal não é um ticket aberto válido ou já foi fechado.', ephemeral: true});
-        }
+        if (!ticket) return;
 
         await db.run('UPDATE tickets SET is_open = FALSE, closed_by = $1 WHERE channel_id = $2', [interaction.user.id, interaction.channelId]);
-
         setTimeout(async () => {
-            try {
-                await interaction.channel.delete('Ticket fechado pelo utilizador.');
-            } catch (error) {
-                console.error(`Falha ao apagar o canal do ticket ${interaction.channelId}:`, error);
-            }
+            try { await interaction.channel.delete('Ticket fechado pelo utilizador.'); } catch (error) { console.error(`Falha ao apagar o canal do ticket ${interaction.channelId}:`, error); }
         }, 5000);
     }
 };
@@ -109,8 +75,13 @@ const confirmCloseTicketHandler = {
 const cancelCloseHandler = {
     customId: 'cancel_close',
     async execute(interaction) {
-        // Simplesmente apaga a mensagem de confirmação
         await interaction.message.delete();
     }
 }
 
+module.exports = [
+    openTicketHandler,
+    closeTicketPromptHandler,
+    confirmCloseTicketHandler,
+    cancelCloseHandler,
+];
