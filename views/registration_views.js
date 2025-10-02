@@ -1,12 +1,12 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
-// Painel público que os membros verão
+// Painel público (sem alterações)
 function getRegistrationPanelPayload() {
     const embed = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('📝 Central de Registo')
         .setDescription('Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo. Você precisará fornecer algumas informações básicas.')
-        .setImage('https://placehold.co/1200x400/0099FF/FFFFFF/png?text=BEM-VINDO(A)!)') // Imagem genérica
+        .setImage('https://placehold.co/1200x400/0099FF/FFFFFF/png?text=BEM-VINDO(A)!)')
         .setFooter({ text: 'BasicFlow • Sistema de Registo' });
 
     const row = new ActionRowBuilder().addComponents(
@@ -20,7 +20,7 @@ function getRegistrationPanelPayload() {
     return { embeds: [embed], components: [row] };
 }
 
-// Formulário (modal) que aparece ao clicar no botão
+// Modal (sem alterações)
 function getRegistrationModal() {
     return new ModalBuilder()
         .setCustomId('registration_modal_submit')
@@ -45,12 +45,14 @@ function getRegistrationModal() {
         );
 }
 
-// Mensagem enviada para o canal da staff para aprovação
+// Mensagem de aprovação para a staff (MODIFICADA)
 function getRegistrationApprovalPayload(interaction, rpName, gameId) {
     const embed = new EmbedBuilder()
         .setColor(0xFFA500)
         .setTitle('📥 Novo Pedido de Registo')
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
+        // ADIÇÃO DO THUMBNAIL DO UTILIZADOR
+        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
         .addFields(
             { name: '👤 Utilizador', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
             { name: '📝 Nome RP', value: `\`\`\`${rpName}\`\`\``, inline: true },
@@ -60,7 +62,7 @@ function getRegistrationApprovalPayload(interaction, rpName, gameId) {
         
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`approve_registration:${interaction.user.id}`) // Passamos o ID do user para a lógica
+            .setCustomId(`approve_registration:${interaction.user.id}`)
             .setLabel('Aprovar')
             .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
