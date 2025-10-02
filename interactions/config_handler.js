@@ -58,7 +58,7 @@ const configHandler = {
         await interaction.deferUpdate();
 
         if (customId.startsWith('config_publish_')) {
-            const panelType = customId.split('_')[2]; // registration, absence, ticket
+            const panelType = customId.split('_')[2];
             let settingsCheck = false;
             let errorMsg = '';
 
@@ -91,6 +91,7 @@ const configHandler = {
             const collector = response.createMessageComponentCollector({ componentType: ComponentType.ChannelSelect, filter: i => i.user.id === interaction.user.id, time: 60000, max: 1 });
             
             collector.on('collect', async i => {
+                await i.deferUpdate(); // Adia a resposta da seleção para evitar timeout
                 const channelId = i.values[0];
                 const targetChannel = await interaction.guild.channels.fetch(channelId);
                 if (targetChannel) {
@@ -100,7 +101,8 @@ const configHandler = {
                     else if (panelType === 'ticket') panelPayload = getTicketPanelPayload();
                     
                     await targetChannel.send(panelPayload);
-                    await i.update({ content: `✅ Painel de ${panelType} publicado com sucesso em ${targetChannel}!`, components: [], embeds: [] });
+                    // Edita a mensagem original do painel de admin
+                    await interaction.editReply({ content: `✅ Painel de ${panelType} publicado com sucesso em ${targetChannel}!`, components: [], embeds: [] });
                 }
             });
             return;
@@ -120,12 +122,22 @@ const configHandler = {
         const response = await interaction.editReply({ content: `Por favor, selecione o ${config.type} desejado no menu abaixo.`, components: [selectMenu], embeds: [], fetchReply: true });
         
         const collector = response.createMessageComponentCollector({ componentType: (config.type === 'channel' ? ComponentType.ChannelSelect : ComponentType.RoleSelect), filter: i => i.user.id === interaction.user.id, time: 60000, max: 1 });
+        
         collector.on('collect', async i => {
+            // ----- A CORREÇÃO ESTÁ AQUI -----
+            // Adia a resposta da seleção do menu imediatamente para evitar o erro de timeout.
+            await i.deferUpdate();
+
             const selectedId = i.values[0];
             await db.run(`INSERT INTO guild_settings (guild_id, ${config.dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${config.dbKey} = $2`, [i.guild.id, selectedId]);
+            
             const payload = await getConfigDashboardPayload(i.guild);
-            await i.update(payload);
+
+            // Edita a mensagem original (a que continha o menu) para mostrar o painel atualizado.
+            // Usamos a interação original 'interaction' para fazer a edição.
+            await interaction.editReply(payload);
         });
+        
         collector.on('end', (collected) => {
             if (collected.size === 0) {
                 interaction.editReply({ content: 'A seleção expirou.', components: [], embeds: [] }).catch(() => {});
@@ -135,4 +147,3 @@ const configHandler = {
 };
 
 module.exports = configHandler;
-
