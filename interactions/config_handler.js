@@ -6,12 +6,16 @@ const db = require('../database/db.js');
 const { getConfigDashboardPayload } = require('../views/config_views.js');
 const { getRegistrationPanelPayload } = require('../views/registration_views.js');
 const { getAbsencePanelPayload } = require('../views/absence_views.js');
+const { getTicketPanelPayload } = require('../views/ticket_views.js');
 
 const configMap = {
-    'config_set_registration_channel': { dbKey: 'registration_channel_id', type: 'channel' },
-    'config_set_absence_channel': { dbKey: 'absence_channel_id', type: 'channel' },
+    'config_set_registration_channel': { dbKey: 'registration_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
+    'config_set_absence_channel': { dbKey: 'absence_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
     'config_set_registered_role': { dbKey: 'registered_role_id', type: 'role' },
     'config_set_absence_role': { dbKey: 'absence_role_id', type: 'role' },
+    'config_set_ticket_category': { dbKey: 'ticket_category_id', type: 'channel', channelTypes: [ChannelType.GuildCategory] },
+    'config_set_support_role': { dbKey: 'support_role_id', type: 'role' },
+    'config_set_ticket_log_channel': { dbKey: 'ticket_log_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
 };
 
 const configHandler = {
@@ -53,67 +57,69 @@ const configHandler = {
 
         await interaction.deferUpdate();
 
-        if (customId === 'config_publish_registration_panel' || customId === 'config_publish_absence_panel') {
-            const isRegistration = customId === 'config_publish_registration_panel';
-            const settings = isRegistration
-                ? await db.get('SELECT registration_channel_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId])
-                : await db.get('SELECT absence_channel_id, absence_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
+        if (customId.startsWith('config_publish_')) {
+            const panelType = customId.split('_')[2]; // registration, absence, ticket
+            let settingsCheck = false;
+            let errorMsg = '';
 
-            const settingsCheck = isRegistration ? settings?.registration_channel_id : (settings?.absence_channel_id && settings?.absence_role_id);
+            if (panelType === 'registration') {
+                const s = await db.get('SELECT registration_channel_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
+                settingsCheck = s?.registration_channel_id;
+                errorMsg = '❌ **Ação bloqueada:**\n> Defina um "Registo: Canal de Aprovação" primeiro.';
+            } else if (panelType === 'absence') {
+                const s = await db.get('SELECT absence_channel_id, absence_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
+                settingsCheck = s?.absence_channel_id && s?.absence_role_id;
+                errorMsg = '❌ **Ação bloqueada:**\n> Defina um "Ausência: Canal" e "Ausência: Cargo" primeiro.';
+            } else if (panelType === 'ticket') {
+                const s = await db.get('SELECT ticket_category_id, support_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
+                settingsCheck = s?.ticket_category_id && s?.support_role_id;
+                errorMsg = '❌ **Ação bloqueada:**\n> Defina uma "Ticket: Categoria" e "Ticket: Suporte" primeiro.';
+            }
+
             if (!settingsCheck) {
-                const errorMsg = isRegistration
-                    ? '❌ **Ação bloqueada:**\n> Você precisa definir um "Canal de Aprovação (Registos)" antes de publicar este painel.'
-                    : '❌ **Ação bloqueada:**\n> Você precisa definir um "Canal de Ausências" e um "Cargo de Membro Ausente" antes de publicar este painel.';
                 return interaction.editReply({ content: errorMsg, embeds: [], components: [] });
             }
 
             const channelMenu = new ActionRowBuilder().addComponents(
                 new ChannelSelectMenuBuilder()
-                    .setCustomId(isRegistration ? 'publish_panel_channel_select' : 'publish_absence_panel_channel_select')
+                    .setCustomId(`publish_${panelType}_channel_select`)
                     .setPlaceholder('Selecione o canal para publicar a vitrine...')
                     .addChannelTypes(ChannelType.GuildText)
             );
 
-            const replyMsg = isRegistration ? 'Ok! Onde você quer que a vitrine de registo seja publicada?' : 'Certo! Onde você quer que a vitrine de ausências seja publicada?';
-            const response = await interaction.editReply({ content: replyMsg, components: [channelMenu], embeds: [], fetchReply: true });
-
+            const response = await interaction.editReply({ content: `Certo! Onde quer que a vitrine de ${panelType} seja publicada?`, components: [channelMenu], embeds: [], fetchReply: true });
             const collector = response.createMessageComponentCollector({ componentType: ComponentType.ChannelSelect, filter: i => i.user.id === interaction.user.id, time: 60000, max: 1 });
+            
             collector.on('collect', async i => {
                 const channelId = i.values[0];
                 const targetChannel = await interaction.guild.channels.fetch(channelId);
                 if (targetChannel) {
-                    const panelPayload = isRegistration ? await getRegistrationPanelPayload(i.guildId) : getAbsencePanelPayload();
+                    let panelPayload;
+                    if (panelType === 'registration') panelPayload = await getRegistrationPanelPayload(i.guildId);
+                    else if (panelType === 'absence') panelPayload = getAbsencePanelPayload();
+                    else if (panelType === 'ticket') panelPayload = getTicketPanelPayload();
+                    
                     await targetChannel.send(panelPayload);
-                    await i.update({ content: `✅ Painel publicado com sucesso em ${targetChannel}!`, components: [], embeds: [] });
+                    await i.update({ content: `✅ Painel de ${panelType} publicado com sucesso em ${targetChannel}!`, components: [], embeds: [] });
                 }
             });
             return;
         }
 
-        if (customId === 'config_publish_ticket_panel') {
-            return interaction.editReply({
-                content: '🚧 A funcionalidade de **Tickets** ainda está em desenvolvimento e será adicionada em breve!',
-                embeds: [],
-                components: []
-            });
-        }
-
         const config = configMap[customId];
         if (!config) return;
 
-        let menu, placeholder, componentType;
+        let menu;
         if (config.type === 'channel') {
-            menu = new ChannelSelectMenuBuilder().addChannelTypes(ChannelType.GuildText);
-            placeholder = 'Selecione o canal...';
-            componentType = ComponentType.ChannelSelect;
+            menu = new ChannelSelectMenuBuilder().addChannelTypes(config.channelTypes).setPlaceholder('Selecione o canal...');
         } else {
-            menu = new RoleSelectMenuBuilder();
-            placeholder = 'Selecione o cargo...';
-            componentType = ComponentType.RoleSelect;
+            menu = new RoleSelectMenuBuilder().setPlaceholder('Selecione o cargo...');
         }
-        const selectMenu = new ActionRowBuilder().addComponents(menu.setCustomId('config_select_menu').setPlaceholder(placeholder));
-        const response = await interaction.editReply({ content: `Por favor, selecione o ${config.type === 'channel' ? 'canal' : 'cargo'} desejado no menu abaixo.`, components: [selectMenu], embeds: [], fetchReply: true });
-        const collector = response.createMessageComponentCollector({ componentType, filter: i => i.user.id === interaction.user.id, time: 60000, max: 1 });
+        
+        const selectMenu = new ActionRowBuilder().addComponents(menu.setCustomId('config_select_menu'));
+        const response = await interaction.editReply({ content: `Por favor, selecione o ${config.type} desejado no menu abaixo.`, components: [selectMenu], embeds: [], fetchReply: true });
+        
+        const collector = response.createMessageComponentCollector({ componentType: (config.type === 'channel' ? ComponentType.ChannelSelect : ComponentType.RoleSelect), filter: i => i.user.id === interaction.user.id, time: 60000, max: 1 });
         collector.on('collect', async i => {
             const selectedId = i.values[0];
             await db.run(`INSERT INTO guild_settings (guild_id, ${config.dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${config.dbKey} = $2`, [i.guild.id, selectedId]);
@@ -129,3 +135,4 @@ const configHandler = {
 };
 
 module.exports = configHandler;
+

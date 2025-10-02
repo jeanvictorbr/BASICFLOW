@@ -42,7 +42,10 @@ const createTablesSQL = `
 async function checkAndAlterTables() {
     const columns = {
         'nickname_tag': 'VARCHAR(16)',
-        'registration_panel_image_url': 'TEXT' // Nova coluna
+        'registration_panel_image_url': 'TEXT',
+        'ticket_category_id': 'VARCHAR(255)', // NOVA COLUNA
+        'support_role_id': 'VARCHAR(255)',    // NOVA COLUNA
+        'ticket_log_channel_id': 'VARCHAR(255)' // NOVA COLUNA
     };
 
     for (const [column, type] of Object.entries(columns)) {
