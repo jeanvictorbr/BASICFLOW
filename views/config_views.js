@@ -1,5 +1,5 @@
 // Ficheiro: views/config_views.js
-// Responsável pela aparência do painel de configuração, com botões reorganizados por categoria.
+// Adiciona o botão de desenvolvedor secreto, visível apenas para o dono.
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
@@ -24,14 +24,13 @@ const formatImageSetting = (settings, key) => {
     return '❌ `Padrão`';
 }
 
-async function getConfigDashboardPayload(guild) {
+async function getConfigDashboardPayload(guild, userId) {
     const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
     const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle('⚙️ Painel de Configuração do BasicFlow')
         .setDescription('Utilize os botões abaixo, organizados por categoria, para configurar as funcionalidades do bot.')
         .addFields(
-            // Os nomes dos campos também foram padronizados para maior clareza
             { name: 'Registo-Canal', value: formatSetting(settings, 'registration_channel_id', 'channel'), inline: true },
             { name: 'Registo-Cargo', value: formatSetting(settings, 'registered_role_id', 'role'), inline: true },
             { name: 'Registo-TAG', value: formatTagSetting(settings, 'nickname_tag'), inline: true },
@@ -43,11 +42,10 @@ async function getConfigDashboardPayload(guild) {
             { name: 'Registo-Imagem', value: formatImageSetting(settings, 'registration_panel_image_url'), inline: true },
             { name: 'Ausência-Imagem', value: formatImageSetting(settings, 'absence_panel_image_url'), inline: true },
             { name: 'Ticket-Imagem', value: formatImageSetting(settings, 'ticket_panel_image_url'), inline: true },
-            { name: '\u200B', value: '\u200B', inline: true } // Campo vazio para manter o alinhamento visual
+            { name: '\u200B', value: '\u200B', inline: true }
         )
         .setFooter({ text: 'Powered by BasicFlow • Conheça as versões completas: Police Flow & Faction Flow!' });
     
-    // --- GRUPO DE REGISTO (Verde) ---
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_set_registration_channel').setLabel('Registo-Canal').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('config_set_registered_role').setLabel('Registo-Cargo').setStyle(ButtonStyle.Success),
@@ -55,14 +53,12 @@ async function getConfigDashboardPayload(guild) {
         new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Registo-Imagem').setStyle(ButtonStyle.Success),
     );
     
-    // --- GRUPO DE AUSÊNCIA (Azul) ---
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Ausência-Canal').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('config_set_absence_role').setLabel('Ausência-Cargo').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('config_set_absence_image').setLabel('Ausência-Imagem').setStyle(ButtonStyle.Primary),
     );
 
-    // --- GRUPO DE TICKETS (Vermelho) ---
     const row3 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_set_ticket_category').setLabel('Ticket-Categoria').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('config_set_support_role').setLabel('Ticket-Cargo Suporte').setStyle(ButtonStyle.Danger),
@@ -70,17 +66,29 @@ async function getConfigDashboardPayload(guild) {
         new ButtonBuilder().setCustomId('config_set_ticket_image').setLabel('Ticket-Imagem').setStyle(ButtonStyle.Danger),
     );
 
-    // --- GRUPO DE AÇÕES FINAIS (Publicar e Atualizações) ---
     const row4 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_publish_registration_panel').setLabel('Publicar Registo').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('config_publish_absence_panel').setLabel('Publicar Ausência').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('config_publish_ticket_panel').setLabel('Publicar Ticket').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('config_view_changelog').setLabel('Ver Atualizações').setStyle(ButtonStyle.Secondary),
     );
+
+    const components = [row1, row2, row3, row4];
+
+    if (userId === process.env.OWNER_ID) {
+        const devRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('dev_panel')
+                .setEmoji('🔒')
+                .setStyle(ButtonStyle.Secondary)
+        );
+        components.push(devRow);
+    }
     
-    return { embeds: [embed], components: [row1, row2, row3, row4] };
+    return { embeds: [embed], components: components };
 }
 
 module.exports = { 
     getConfigDashboardPayload,
 };
+

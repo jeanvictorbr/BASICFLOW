@@ -20,6 +20,13 @@ const createTablesSQL = `
         channel_id VARCHAR(255) NOT NULL,
         is_open BOOLEAN DEFAULT TRUE
     );
+        -- NOVA TABELA GLOBAL PARA ATUALIZAÇÕES
+    CREATE TABLE IF NOT EXISTS changelog_updates (
+        update_id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        timestamp BIGINT NOT NULL
+    );
 `;
 
 async function checkAndAlterTables() {

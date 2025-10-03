@@ -1,49 +1,62 @@
 // Ficheiro: views/changelog_view.js
-// Responsável por buscar e exibir o dashboard de atualizações.
+// Reconstruído para buscar atualizações da base de dados local.
 
 const { EmbedBuilder } = require('discord.js');
-const axios = require('axios');
+const db = require('../database/db.js'); // AGORA USA A BASE DE DADOS
 
-// COLE AQUI O SEU URL "RAW" DO GITHUB GIST
-const CHANGELOG_URL = 'https://gist.githubusercontent.com/jeanvictorbr/30bd876698bf407832b8ef123dcd14c2/raw/bc58811b9926f61735ec193bba97ce24cf4c4a7c/basicflow_changelog.json';
+// Estes dados podem ser movidos para a BD no futuro, se desejar
+const PROMOTION_DATA = {
+    title: "💎 Conheça as Nossas Versões Completas!",
+    description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas e repletas de funcionalidades.",
+    projects: [
+        { name: "Police Flow (Para Servidores Policiais)", url: "https://flow-bots.com/policeflow" },
+        { name: "Faction Flow (Para Facções e Organizações)", url: "https://flow-bots.com/factionflow" }
+    ]
+};
 
 async function getChangelogPayload() {
-    if (!CHANGELOG_URL.startsWith('https://')) {
-        return { content: '❌ A URL do changelog não foi configurada corretamente no código do bot.', embeds: [] };
-    }
-
     try {
-        const response = await axios.get(CHANGELOG_URL);
-        const data = response.data;
+        // Busca as 5 atualizações mais recentes, ordenadas pela mais nova primeiro
+        const updates = await db.all('SELECT * FROM changelog_updates ORDER BY timestamp DESC LIMIT 5');
+
+        if (updates.length === 0) {
+            const emptyEmbed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle('📰 Atualizações do BasicFlow')
+                .setDescription('Ainda não há nenhuma atualização para mostrar.');
+            return { embeds: [emptyEmbed] };
+        }
+        
+        const latestUpdate = updates[0];
+        const updateDate = new Date(Number(latestUpdate.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(`📰 Atualizações do BasicFlow - v${data.latest_version}`)
-            .setDescription(`*Última atualização em: ${data.update_date}*`)
-            .setImage(data.image_url)
+            .setTitle(`📰 Atualizações Recentes do BasicFlow`)
+            .setDescription(`*Última atualização em: ${updateDate}*`)
+            .setImage('https://i.imgur.com/YuK1aVN.gif') // Imagem padrão
             .setFooter({ text: 'Powered by Flow Bots' });
 
-        // Adiciona os campos de atualização
-        for (const update of data.updates) {
-            embed.addFields({ name: update.title, value: update.description, inline: false });
+        for (const update of updates) {
+            embed.addFields({ name: `- ${update.title}`, value: update.description, inline: false });
         }
 
-        // Adiciona o campo de promoção
-        const promoDescription = `${data.promotion.description}\n\n` +
-            data.promotion.projects.map(p => `➡️ **[${p.name}](${p.url})**`).join('\n');
+        const promoDescription = `${PROMOTION_DATA.description}\n\n` +
+            PROMOTION_DATA.projects.map(p => `➡️ **[${p.name}](${p.url})**`).join('\n');
         
-        embed.addFields({ name: `\u200B\n${data.promotion.title}`, value: promoDescription, inline: false });
+        embed.addFields({ name: `\u200B\n${PROMOTION_DATA.title}`, value: promoDescription, inline: false });
         
         return { embeds: [embed] };
 
     } catch (error) {
-        console.error("[CHANGELOG] Erro ao buscar o ficheiro de atualizações:", error);
+        console.error("[CHANGELOG] Erro ao buscar atualizações da base de dados:", error);
         const errorEmbed = new EmbedBuilder()
             .setColor(0xED4245)
             .setTitle('❌ Erro ao Carregar Atualizações')
-            .setDescription('Não foi possível buscar as informações de atualização no momento. Por favor, tente novamente mais tarde.');
+            .setDescription('Não foi possível buscar as informações de atualização no momento. Verifique os logs do bot para mais detalhes.');
         return { embeds: [errorEmbed] };
     }
 }
 
 module.exports = { getChangelogPayload };
+

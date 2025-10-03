@@ -9,7 +9,7 @@ async function handleConfigCommand(interaction) {
         return;
     }
     try {
-        const payload = await getConfigDashboardPayload(interaction.guild);
+        const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
         await interaction.editReply(payload);
     } catch (payloadError) {
         console.error('[ERRO CRÍTICO] Falha ao buscar os dados para o painel de configuração.', payloadError);
