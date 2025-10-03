@@ -1,5 +1,5 @@
 // Ficheiro: interactions/ticket_handler.js
-// Lógica completa e robusta para o sistema de tickets.
+// Lógica completa e robusta para o sistema de tickets, com transcripts melhorados.
 
 const { ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const db = require('../database/db.js');
@@ -78,8 +78,19 @@ const transcriptTicketHandler = {
     customId: (id) => id.startsWith('transcript_ticket:'),
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
+
         const messages = await interaction.channel.messages.fetch({ limit: 100 });
-        const content = messages.reverse().map(m => `[${new Date(m.createdAt).toLocaleString('pt-BR')}] ${m.author.tag}: ${m.attachments.size > 0 ? m.attachments.first().url : m.content}`).join('\n');
+        
+        // NOVA LÓGICA DE TRANSCRIPT MELHORADA
+        const content = messages.reverse().map(m => {
+            const timestamp = `[${new Date(m.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}]`;
+            const author = m.member ? m.member.displayName : m.author.tag;
+            const attachments = m.attachments.size > 0 ? ` [Anexo: ${m.attachments.first().url}]` : '';
+            let readableContent = m.content;
+            if (m.mentions.users.size > 0) { m.mentions.users.forEach(user => { readableContent = readableContent.replace(new RegExp(`<@!?${user.id}>`, 'g'), `@${user.tag}`); }); }
+            if (m.mentions.roles.size > 0) { m.mentions.roles.forEach(role => { readableContent = readableContent.replace(new RegExp(`<@&${role.id}>`, 'g'), `@${role.name}`); }); }
+            return `${timestamp} ${author}: ${readableContent || ''}${attachments}`;
+        }).join('\n');
         
         const transcriptFile = new AttachmentBuilder(Buffer.from(content), { name: `transcript-${interaction.channel.name}.txt` });
         await interaction.editReply({ content: 'Transcrição gerada:', files: [transcriptFile] });
@@ -134,8 +145,18 @@ const confirmCloseTicketHandler = {
         if (settings.ticket_log_channel_id) {
             const logChannel = await interaction.guild.channels.fetch(settings.ticket_log_channel_id).catch(() => null);
             if(logChannel) {
+                // NOVA LÓGICA DE TRANSCRIPT MELHORADA APLICADA AO LOG
                 const messages = await interaction.channel.messages.fetch({ limit: 100 });
-                const content = messages.reverse().map(m => `[${new Date(m.createdAt).toLocaleString('pt-BR')}] ${m.author.tag}: ${m.attachments.size > 0 ? m.attachments.first().url : m.content}`).join('\n');
+                const content = messages.reverse().map(m => {
+                    const timestamp = `[${new Date(m.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}]`;
+                    const author = m.member ? m.member.displayName : m.author.tag;
+                    const attachments = m.attachments.size > 0 ? ` [Anexo: ${m.attachments.first().url}]` : '';
+                    let readableContent = m.content;
+                    if (m.mentions.users.size > 0) { m.mentions.users.forEach(user => { readableContent = readableContent.replace(new RegExp(`<@!?${user.id}>`, 'g'), `@${user.tag}`); }); }
+                    if (m.mentions.roles.size > 0) { m.mentions.roles.forEach(role => { readableContent = readableContent.replace(new RegExp(`<@&${role.id}>`, 'g'), `@${role.name}`); }); }
+                    return `${timestamp} ${author}: ${readableContent || ''}${attachments}`;
+                }).join('\n');
+
                 const transcriptFile = new AttachmentBuilder(Buffer.from(content), { name: `transcript-${interaction.channel.name}.txt` });
                 const user = await interaction.client.users.fetch(ticket.user_id);
                 

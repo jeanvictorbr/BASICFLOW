@@ -5,6 +5,7 @@ const { Client, GatewayIntentBits, Collection, Events, REST, Routes } = require(
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv-flow').config();
+const absenceChecker = require('./tasks/absence_checker.js');
 
 process.on('unhandledRejection', error => console.error('ERRO GLOBAL NÃO TRATADO:', error));
 process.on('uncaughtException', error => console.error('EXCEÇÃO GLOBAL NÃO TRATADA:', error));
@@ -114,6 +115,7 @@ async function startBot() {
     masterHandler.loadHandlers();
     // Apenas regista globalmente na inicialização. O evento GuildCreate trata dos novos servidores.
     await registerCommands(); 
+    absenceChecker.initialize(client);
     client.login(DISCORD_TOKEN);
 }
 
