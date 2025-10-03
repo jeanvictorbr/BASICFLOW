@@ -9,7 +9,6 @@ const { getAbsencePanelPayload } = require('../views/absence_views.js');
 const { getTicketPanelPayload } = require('../views/ticket_views.js');
 const { getChangelogPayload } = require('../views/changelog_view.js');
 
-// Mapa para botões que abrem menus de seleção
 const menuButtons = {
     'config_set_registration_channel': { dbKey: 'registration_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
     'config_set_absence_channel': { dbKey: 'absence_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
@@ -20,14 +19,12 @@ const menuButtons = {
     'config_set_ticket_log_channel': { dbKey: 'ticket_log_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText] },
 };
 
-// Mapa para botões que publicam painéis
 const publishButtons = {
     'config_publish_registration_panel': { type: 'registration', required: ['registration_channel_id'] },
     'config_publish_absence_panel': { type: 'absence', required: ['absence_channel_id', 'absence_role_id'] },
     'config_publish_ticket_panel': { type: 'ticket', required: ['ticket_category_id', 'support_role_id'] }
 };
 
-// Mapa para botões que abrem formulários (modais)
 const modalButtons = {
     'config_set_nickname_tag': { dbKey: 'nickname_tag', title: 'Definir TAG de Nickname', label: 'Insira a TAG (sem colchetes)' },
     'config_set_panel_image': { dbKey: 'registration_panel_image_url', title: 'Definir Imagem do Painel de Registo', label: 'Cole a URL da imagem (https)' },
@@ -36,53 +33,53 @@ const modalButtons = {
 };
 
 const configHandler = {
-    customId: (id) => id.startsWith('config_') || id.startsWith('set_config:') || id.startsWith('publish_panel:'),
+    customId: (id) => id.startsWith('config_') || id.startsWith('set_config:') || id.startsWith('publish_panel:') || id.startsWith('modal_submit:') || id.startsWith('changelog_page:'),
 
     async execute(interaction) {
-        const [action] = interaction.customId.split(':');
+        const [action, ...args] = interaction.customId.split(':');
 
-        // --- LÓGICA PARA MODAIS (Formulários) ---
+        if (action === 'config_view_changelog') {
+            await interaction.deferReply({ ephemeral: true });
+            const payload = await getChangelogPayload(1);
+            await interaction.editReply(payload);
+            return;
+        }
+
+        if (action === 'changelog_page') {
+            await interaction.deferUpdate();
+            const page = parseInt(args[0], 10);
+            if (isNaN(page) || page < 1) return;
+            const payload = await getChangelogPayload(page);
+            await interaction.editReply(payload);
+            return;
+        }
+
         if (modalButtons[action]) {
             const config = modalButtons[action];
-            const modal = new ModalBuilder()
-                .setCustomId(`modal_submit:${config.dbKey}`) // ID único para a submissão
-                .setTitle(config.title);
+            const modal = new ModalBuilder().setCustomId(`modal_submit:${config.dbKey}`).setTitle(config.title);
             const textInput = new TextInputBuilder().setCustomId('value_input').setLabel(config.label).setStyle(TextInputStyle.Short).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(textInput));
-            
             await interaction.showModal(modal);
 
             const filter = i => i.customId === `modal_submit:${config.dbKey}` && i.user.id === interaction.user.id;
             try {
                 const modalInteraction = await interaction.awaitModalSubmit({ filter, time: 60000 });
                 await modalInteraction.deferUpdate();
-
                 const value = modalInteraction.fields.getTextInputValue('value_input');
                 if (config.dbKey.includes('_url') && !value.startsWith('https://')) {
                     await interaction.followUp({ content: '❌ URL inválida. O link da imagem deve começar com `https://`.', ephemeral: true });
                     return;
                 }
-                
                 await db.run(`INSERT INTO guild_settings (guild_id, ${config.dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${config.dbKey} = $2`, [interaction.guildId, value]);
-                
-                const payload = await getConfigDashboardPayload(interaction.guild);
+                const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
                 await interaction.editReply(payload);
                 await interaction.followUp({ content: '✅ Configuração guardada com sucesso!', ephemeral: true });
-
             } catch (err) {
                 await interaction.followUp({ content: 'A configuração expirou.', ephemeral: true }).catch(() => {});
             }
             return;
         }
-                // --- NOVA LÓGICA PARA O BOTÃO DE CHANGELOG ---
-        if (action === 'config_view_changelog') {
-            await interaction.deferReply({ ephemeral: true });
-            const payload = await getChangelogPayload();
-            await interaction.editReply(payload);
-            return;
-        }
 
-        // --- LÓGICA PARA MENUS DE SELEÇÃO E PUBLICAÇÃO ---
         await interaction.deferUpdate();
 
         if (menuButtons[action]) {
@@ -103,7 +100,7 @@ const configHandler = {
             const dbKey = interaction.customId.split(':')[1];
             const selectedId = interaction.values[0];
             await db.run(`INSERT INTO guild_settings (guild_id, ${dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${dbKey} = $2`, [interaction.guildId, selectedId]);
-            const payload = await getConfigDashboardPayload(interaction.guild);
+            const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
             await interaction.editReply(payload);
             return;
         }
@@ -140,3 +137,4 @@ const configHandler = {
 };
 
 module.exports = configHandler;
+

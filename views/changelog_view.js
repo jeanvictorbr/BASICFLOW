@@ -1,10 +1,11 @@
 // Ficheiro: views/changelog_view.js
-// Reconstruído para buscar atualizações da base de dados local.
+// Reconstruído para suportar paginação.
 
-const { EmbedBuilder } = require('discord.js');
-const db = require('../database/db.js'); // AGORA USA A BASE DE DADOS
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const db = require('../database/db.js');
 
-// Estes dados podem ser movidos para a BD no futuro, se desejar
+const UPDATES_PER_PAGE = 5;
+
 const PROMOTION_DATA = {
     title: "💎 Conheça as Nossas Versões Completas!",
     description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas e repletas de funcionalidades.",
@@ -14,39 +15,60 @@ const PROMOTION_DATA = {
     ]
 };
 
-async function getChangelogPayload() {
+async function getChangelogPayload(page = 1) {
     try {
-        // Busca as 5 atualizações mais recentes, ordenadas pela mais nova primeiro
-        const updates = await db.all('SELECT * FROM changelog_updates ORDER BY timestamp DESC LIMIT 5');
-
-        if (updates.length === 0) {
-            const emptyEmbed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle('📰 Atualizações do BasicFlow')
-                .setDescription('Ainda não há nenhuma atualização para mostrar.');
-            return { embeds: [emptyEmbed] };
-        }
+        const [totalResult, updates] = await Promise.all([
+            db.get('SELECT COUNT(*) as count FROM changelog_updates'),
+            db.all('SELECT * FROM changelog_updates ORDER BY timestamp DESC LIMIT $1 OFFSET $2', [UPDATES_PER_PAGE, (page - 1) * UPDATES_PER_PAGE])
+        ]);
         
-        const latestUpdate = updates[0];
-        const updateDate = new Date(Number(latestUpdate.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const totalUpdates = parseInt(totalResult.count, 10);
+        const totalPages = Math.ceil(totalUpdates / UPDATES_PER_PAGE) || 1;
+
+        if (page > totalPages) {
+             page = totalPages;
+        }
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
             .setTitle(`📰 Atualizações Recentes do BasicFlow`)
-            .setDescription(`*Última atualização em: ${updateDate}*`)
-            .setImage('https://i.imgur.com/YuK1aVN.gif') // Imagem padrão
-            .setFooter({ text: 'Powered by Flow Bots' });
+            .setImage('https://i.imgur.com/YuK1aVN.gif')
+            .setFooter({ text: `Powered by Flow Bots • Página ${page} de ${totalPages}` });
 
-        for (const update of updates) {
-            embed.addFields({ name: `- ${update.title}`, value: update.description, inline: false });
+        if (updates.length === 0) {
+            embed.setDescription('Ainda não há nenhuma atualização para mostrar.');
+        } else {
+            const latestUpdate = updates[0];
+            const updateDate = new Date(Number(latestUpdate.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+            embed.setDescription(`*A apresentar as atualizações mais recentes. Última em: ${updateDate}*`);
+
+            for (const update of updates) {
+                embed.addFields({ name: `- ${update.title}`, value: update.description, inline: false });
+            }
+        }
+        
+        if (page === totalPages && PROMOTION_DATA) {
+            const promoDescription = `${PROMOTION_DATA.description}\n\n` +
+                PROMOTION_DATA.projects.map(p => `➡️ **[${p.name}](${p.url})**`).join('\n');
+            embed.addFields({ name: `\u200B\n${PROMOTION_DATA.title}`, value: promoDescription, inline: false });
         }
 
-        const promoDescription = `${PROMOTION_DATA.description}\n\n` +
-            PROMOTION_DATA.projects.map(p => `➡️ **[${p.name}](${p.url})**`).join('\n');
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`changelog_page:${page - 1}`)
+                .setLabel('Anterior')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('⬅️')
+                .setDisabled(page <= 1),
+            new ButtonBuilder()
+                .setCustomId(`changelog_page:${page + 1}`)
+                .setLabel('Próximo')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('➡️')
+                .setDisabled(page >= totalPages)
+        );
         
-        embed.addFields({ name: `\u200B\n${PROMOTION_DATA.title}`, value: promoDescription, inline: false });
-        
-        return { embeds: [embed] };
+        return { embeds: [embed], components: [row] };
 
     } catch (error) {
         console.error("[CHANGELOG] Erro ao buscar atualizações da base de dados:", error);
