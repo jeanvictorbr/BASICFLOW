@@ -18,6 +18,8 @@ function registerHandlers() {
         require('./absence_handler.js'),
         require('./absence_approval_handler.js'),
         require('./ticket_handler.js'),
+        // NOVA LINHA - Carrega o handler do painel de desenvolvedor
+        require('./dev_panel_handler.js'), 
     ];
 
     for (const requiredModule of allModules) {
@@ -25,7 +27,6 @@ function registerHandlers() {
         for (const handler of handlers) {
             if (typeof handler.customId === 'function') {
                 functionHandlers.push(handler);
-                // Para simplificar o log, apenas contamos os handlers de função
             } else if (handler.customId) {
                 componentHandlers.set(handler.customId, handler);
                 console.log(`[ROBUST HANDLER] Handler de componente carregado: ${handler.customId}`);
@@ -35,13 +36,12 @@ function registerHandlers() {
     console.log(`[ROBUST HANDLER] Carregamento manual de handlers concluído. Total: ${componentHandlers.size} componentes, ${functionHandlers.length} funções.`);
 }
 
-// A função 'loadHandlers' agora só chama o registo. Sem procurar ficheiros.
+// A função 'loadHandlers' agora só chama o registo.
 function loadHandlers() {
     try {
         registerHandlers();
     } catch (error) {
         console.error('[ROBUST HANDLER] ERRO CRÍTICO DURANTE O CARREGAMENTO MANUAL DE HANDLERS:', error);
-        // Se um ficheiro de handler essencial não existir ou tiver um erro, o bot irá parar.
         process.exit(1);
     }
 }
@@ -75,3 +75,4 @@ async function execute(interaction) {
 }
 
 module.exports = { loadHandlers, execute };
+
