@@ -5,7 +5,7 @@ const { EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 
 // COLE AQUI O SEU URL "RAW" DO GITHUB GIST
-const CHANGELOG_URL = 'https://gist.github.com/jeanvictorbr/30bd876698bf407832b8ef123dcd14c2';
+const CHANGELOG_URL = 'https://gist.githubusercontent.com/jeanvictorbr/30bd876698bf407832b8ef123dcd14c2/raw/bc58811b9926f61735ec193bba97ce24cf4c4a7c/basicflow_changelog.json';
 
 async function getChangelogPayload() {
     if (!CHANGELOG_URL.startsWith('https://')) {
