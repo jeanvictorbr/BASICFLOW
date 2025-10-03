@@ -7,6 +7,7 @@ const { getConfigDashboardPayload } = require('../views/config_views.js');
 const { getRegistrationPanelPayload } = require('../views/registration_views.js');
 const { getAbsencePanelPayload } = require('../views/absence_views.js');
 const { getTicketPanelPayload } = require('../views/ticket_views.js');
+const { getChangelogPayload } = require('../views/changelog_view.js');
 
 // Mapa para botões que abrem menus de seleção
 const menuButtons = {
@@ -71,6 +72,13 @@ const configHandler = {
             } catch (err) {
                 await interaction.followUp({ content: 'A configuração expirou.', ephemeral: true }).catch(() => {});
             }
+            return;
+        }
+                // --- NOVA LÓGICA PARA O BOTÃO DE CHANGELOG ---
+        if (action === 'config_view_changelog') {
+            await interaction.deferReply({ ephemeral: true });
+            const payload = await getChangelogPayload();
+            await interaction.editReply(payload);
             return;
         }
 
