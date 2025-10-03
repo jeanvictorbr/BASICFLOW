@@ -1,5 +1,5 @@
 // Ficheiro: views/config_views.js
-// Responsável pela aparência do painel de configuração.
+// Responsável pela aparência do painel de configuração, com botões coloridos e emojis.
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
@@ -42,36 +42,42 @@ async function getConfigDashboardPayload(guild) {
             { name: 'Ticket: Canal de Logs', value: formatSetting(settings, 'ticket_log_channel_id', 'channel'), inline: true },
             { name: 'Registo: Imagem do Painel', value: formatImageSetting(settings, 'registration_panel_image_url'), inline: true },
             { name: 'Ticket: Imagem do Painel', value: formatImageSetting(settings, 'ticket_panel_image_url'), inline: true },
-            { name: '\u200B', value: '\u200B', inline: true } // Campo vazio para alinhamento
+            { name: '\u200B', value: '\u200B', inline: true }
         )
         .setFooter({ text: 'Powered by BasicFlow • Conheça as versões completas: Police Flow & Faction Flow!' });
     
+    // --- GRUPO DE REGISTO (Verde) ---
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_set_registration_channel').setLabel('Registo: Canal').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Ausência: Canal').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_ticket_category').setLabel('Ticket: Categoria').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_registration_channel').setLabel('Canal').setStyle(ButtonStyle.Success).setEmoji('📝'),
+        new ButtonBuilder().setCustomId('config_set_registered_role').setLabel('Cargo').setStyle(ButtonStyle.Success).setEmoji('📝'),
+        new ButtonBuilder().setCustomId('config_set_nickname_tag').setLabel('TAG').setStyle(ButtonStyle.Success).setEmoji('📝'),
+        new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Imagem').setStyle(ButtonStyle.Success).setEmoji('📝'),
     );
+    
+    // --- GRUPO DE AUSÊNCIA (Azul) ---
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_set_registered_role').setLabel('Registo: Cargo').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_absence_role').setLabel('Ausência: Cargo').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_support_role').setLabel('Ticket: Suporte').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Canal').setStyle(ButtonStyle.Primary).setEmoji('🏝️'),
+        new ButtonBuilder().setCustomId('config_set_absence_role').setLabel('Cargo').setStyle(ButtonStyle.Primary).setEmoji('🏝️'),
+        new ButtonBuilder().setCustomId('config_set_absence_image').setLabel('Imagem').setStyle(ButtonStyle.Primary).setEmoji('🏝️'),
     );
+
+    // --- GRUPO DE TICKETS (Vermelho) ---
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_set_nickname_tag').setLabel('Registo: TAG').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_ticket_log_channel').setLabel('Ticket: Logs').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_ticket_category').setLabel('Categoria').setStyle(ButtonStyle.Danger).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('config_set_support_role').setLabel('Cargo Suporte').setStyle(ButtonStyle.Danger).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('config_set_ticket_log_channel').setLabel('Canal Logs').setStyle(ButtonStyle.Danger).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('config_set_ticket_image').setLabel('Imagem').setStyle(ButtonStyle.Danger).setEmoji('🎫'),
     );
+
+    // --- GRUPO DE AÇÕES (Publicar e Atualizações) ---
     const row4 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Registo: Imagem').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_absence_image').setLabel('Ausência: Imagem').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('config_set_ticket_image').setLabel('Ticket: Imagem').setStyle(ButtonStyle.Secondary),
-    );
-    const row5 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_publish_registration_panel').setLabel('Publicar Registo').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('config_publish_absence_panel').setLabel('Publicar Ausência').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('config_publish_ticket_panel').setLabel('Publicar Ticket').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('config_view_changelog').setLabel('Ver Atualizações').setStyle(ButtonStyle.Secondary).setEmoji('📰'),
+        new ButtonBuilder().setCustomId('config_view_changelog').setLabel('Atualizações').setStyle(ButtonStyle.Secondary).setEmoji('📰'),
     );
-    return { embeds: [embed], components: [row1, row2, row3, row4, row5] };
+    
+    return { embeds: [embed], components: [row1, row2, row3, row4] };
 }
 
 module.exports = { 
