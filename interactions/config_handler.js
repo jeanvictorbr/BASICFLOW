@@ -1,13 +1,12 @@
-// Ficheiro: interactions/config_handler.js (VERSÃO CORRIGIDA E FINAL)
+// Ficheiro: interactions/config_handler.js (VERSÃO FINAL COM NAVEGAÇÃO)
 const { ActionRowBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const db = require('../database/db.js');
-const { getConfigDashboardPayload } = require('../views/config_views.js');
+const { getConfigDashboardPayload, getCategoryPayload } = require('../views/config_views.js');
 const { getRegistrationPanelPayload } = require('../views/registration_views.js');
 const { getAbsencePanelPayload } = require('../views/absence_views.js');
 const { getTicketPanelPayload } = require('../views/ticket_views.js');
 const { getChangelogPayload } = require('../views/changelog_view.js');
 
-// Mapeia o customId dos botões para a lógica de criação de menus
 const menuButtons = {
     'config_set_registration_channel': { dbKey: 'registration_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText], placeholder: 'Selecione o canal para logs de registo...' },
     'config_set_absence_channel': { dbKey: 'absence_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText], placeholder: 'Selecione o canal para logs de ausência...' },
@@ -18,14 +17,12 @@ const menuButtons = {
     'config_set_ticket_log_channel': { dbKey: 'ticket_log_channel_id', type: 'channel', channelTypes: [ChannelType.GuildText], placeholder: 'Selecione o canal de logs de tickets...' },
 };
 
-// Mapeia o customId dos botões para a lógica de publicação de painéis
 const publishButtons = {
     'config_publish_registration_panel': { type: 'registration', required: ['registration_channel_id'] },
     'config_publish_absence_panel': { type: 'absence', required: ['absence_channel_id', 'absence_role_id'] },
     'config_publish_ticket_panel': { type: 'ticket', required: ['ticket_category_id', 'support_role_id'] }
 };
 
-// Mapeia o customId dos botões para a lógica de criação de modais
 const modalButtons = {
     'config_set_nickname_tag': { dbKey: 'nickname_tag', title: 'Definir TAG de Nickname', label: 'Insira a TAG (sem colchetes)', style: TextInputStyle.Short },
     'config_set_panel_image': { dbKey: 'registration_panel_image_url', title: 'Imagem do Painel de Registo', label: 'Cole a URL da imagem (https)', style: TextInputStyle.Short },
@@ -33,7 +30,6 @@ const modalButtons = {
     'config_set_ticket_image': { dbKey: 'ticket_panel_image_url', title: 'Imagem do Painel de Ticket', label: 'Cole a URL da imagem (https)', style: TextInputStyle.Short },
 };
 
-// Handler unificado para todas as interações de configuração
 const configHandler = {
     customId: (id) => id.startsWith('config_') || id.startsWith('select_config:') || id.startsWith('publish_panel:') || id.startsWith('modal_submit:') || id.startsWith('changelog_page:'),
 
@@ -42,19 +38,30 @@ const configHandler = {
 
         // --- HANDLERS DE BOTÕES ---
         if (interaction.isButton()) {
-            // Changelog
-            if (customId === 'config_view_changelog') {
-                await interaction.reply({ ...(await getChangelogPayload(1)), ephemeral: true });
-                return;
-            }
-            if (customId.startsWith('changelog_page:')) {
-                const page = parseInt(customId.split(':')[1], 10);
-                if (isNaN(page) || page < 1) return interaction.deferUpdate();
-                await interaction.update(await getChangelogPayload(page));
+            const [action, arg] = customId.split(':');
+
+            // Navegação entre menus
+            if (action === 'config_menu') {
+                await interaction.deferUpdate();
+                if (arg === 'main') {
+                    await interaction.editReply(await getConfigDashboardPayload(interaction.guild, user.id));
+                } else {
+                    await interaction.editReply(await getCategoryPayload(interaction.guild, arg));
+                }
                 return;
             }
 
-            // Menus de Seleção
+            // Changelog
+            if (customId === 'config_view_changelog') {
+                return interaction.reply({ ...(await getChangelogPayload(1)), ephemeral: true });
+            }
+            if (action === 'changelog_page') {
+                const page = parseInt(arg, 10);
+                if (isNaN(page) || page < 1) return interaction.deferUpdate();
+                return interaction.update(await getChangelogPayload(page));
+            }
+
+            // Menus de Seleção (Canais e Cargos)
             if (menuButtons[customId]) {
                 const config = menuButtons[customId];
                 let menu;
@@ -64,8 +71,7 @@ const configHandler = {
                     menu = new RoleSelectMenuBuilder();
                 }
                 menu.setCustomId(`select_config:${config.dbKey}`).setPlaceholder(config.placeholder);
-                await interaction.reply({ components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
-                return;
+                return interaction.reply({ components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
             }
 
             // Publicar Painéis
@@ -73,11 +79,10 @@ const configHandler = {
                 const config = publishButtons[customId];
                 const settings = await db.get(`SELECT ${config.required.join(', ')} FROM guild_settings WHERE guild_id = $1`, [interaction.guildId]);
                 if (!config.required.every(key => settings?.[key])) {
-                    return interaction.reply({ content: `❌ Faltam configurações essenciais para publicar este painel. Verifique as definições de **${config.type}**.`, ephemeral: true });
+                    return interaction.reply({ content: `❌ Faltam configurações essenciais para publicar este painel.`, ephemeral: true });
                 }
                 const menu = new ChannelSelectMenuBuilder().setCustomId(`publish_panel:${config.type}`).setPlaceholder('Selecione o canal para publicar...').addChannelTypes(ChannelType.GuildText);
-                await interaction.reply({ content: `Onde quer que o painel de **${config.type}** seja publicado?`, components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
-                return;
+                return interaction.reply({ content: `Onde quer que o painel de **${config.type}** seja publicado?`, components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
             }
 
             // Modais
@@ -91,21 +96,20 @@ const configHandler = {
             }
         }
 
-        // --- HANDLERS DE MENUS DE SELEÇÃO (CANAL E CARGO) ---
+        // --- HANDLER DE SELEÇÃO DE CANAL/CARGO ---
         if (interaction.isAnySelectMenu() && customId.startsWith('select_config:')) {
-            await interaction.deferUpdate();
             const dbKey = customId.split(':')[1];
             const selectedId = interaction.values[0];
             await db.run(`INSERT INTO guild_settings (guild_id, ${dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${dbKey} = $2`, [interaction.guildId, selectedId]);
-            await interaction.editReply({ ...(await getConfigDashboardPayload(interaction.guild, user.id)), content: '✅ Configuração guardada com sucesso!', components: [] });
-            // Remove a mensagem de seleção após 5 segundos
-            setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+            
+            // Apenas confirma e apaga a mensagem temporária
+            await interaction.update({ content: '✅ Configuração guardada com sucesso!', components: [] });
+            setTimeout(() => interaction.deleteReply().catch(() => {}), 3000);
             return;
         }
 
-        // --- HANDLER PARA PUBLICAR PAINEL APÓS SELEÇÃO DE CANAL ---
+        // --- HANDLER PARA PUBLICAR PAINEL ---
         if (interaction.isChannelSelectMenu() && customId.startsWith('publish_panel:')) {
-            await interaction.deferUpdate();
             const panelType = customId.split(':')[1];
             const channelId = interaction.values[0];
             const targetChannel = await interaction.guild.channels.fetch(channelId).catch(() => null);
@@ -117,9 +121,9 @@ const configHandler = {
                 else if (panelType === 'ticket') panelPayload = await getTicketPanelPayload(interaction.guildId);
                 
                 await targetChannel.send(panelPayload);
-                await interaction.editReply({ content: `✅ Painel de **${panelType}** publicado com sucesso em ${targetChannel}!`, components: [] });
+                await interaction.update({ content: `✅ Painel publicado com sucesso em ${targetChannel}!`, components: [] });
             } else {
-                await interaction.editReply({ content: '❌ Canal não encontrado.', components: [] });
+                await interaction.update({ content: '❌ Canal não encontrado.', components: [] });
             }
             return;
         }
@@ -134,10 +138,7 @@ const configHandler = {
                 return interaction.editReply({ content: '❌ URL inválida. O link da imagem deve começar com `https://`.' });
             }
             await db.run(`INSERT INTO guild_settings (guild_id, ${dbKey}) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET ${dbKey} = $2`, [interaction.guildId, value]);
-            await interaction.editReply({ content: '✅ Configuração guardada com sucesso! O painel principal será atualizado.' });
-            
-            // É preciso encontrar a interação do comando original para atualizar o painel,
-            // o que não é direto. Por enquanto, a melhor UX é apenas confirmar.
+            await interaction.editReply({ content: '✅ Configuração guardada com sucesso! Use `/configurar` novamente para ver o painel atualizado.' });
         }
     }
 };
