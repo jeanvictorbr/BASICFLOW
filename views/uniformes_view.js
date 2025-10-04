@@ -2,14 +2,15 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const pool = require('../database/db');
 
 async function getDashboardStats(guildId) {
-    const categoryCount = (await pool.query('SELECT COUNT(*) FROM vestuario_categorias WHERE guild_id = $1', [guildId])).rows[0].count;
-    const itemCount = (await pool.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId])).rows[0].count;
-    const config = (await pool.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId])).rows[0];
-    return {
-        categoryCount: categoryCount || '0',
-        itemCount: itemCount || '0',
-        channelId: config ? config.showcase_channel_id : null
-    };
+    const categoryCountResult = await pool.query('SELECT COUNT(*) FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
+    const itemCountResult = await pool.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
+    const configResult = await pool.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+
+    const categoryCount = categoryCountResult.rows[0]?.count || '0';
+    const itemCount = itemCountResult.rows[0]?.count || '0';
+    const channelId = configResult.rows[0]?.showcase_channel_id;
+
+    return { categoryCount, itemCount, channelId };
 }
 
 async function showConfigPanel(interaction) {
@@ -28,13 +29,18 @@ async function showConfigPanel(interaction) {
 
     const row = new ActionRowBuilder()
         .addComponents(
-            new ButtonBuilder().setCustomId('uniformes_manage_categories').setLabel('Gerenciar Categorias').setStyle(ButtonStyle.Primary).setEmoji('🔵'),
-            new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('🟢'),
-            new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('⚪️'),
+            new ButtonBuilder().setCustomId('uniformes_manage_categories').setLabel('Gerenciar Categorias').setStyle(ButtonStyle.Primary).setEmoji('📚'), // EMOJI CORRIGIDO
+            new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),      // EMOJI CORRIGIDO
+            new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'), // EMOJI CORRIGIDO
             new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal').setStyle(ButtonStyle.Danger).setEmoji('📢')
         );
 
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    // Verifica se a interação já foi respondida
+    if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [row], ephemeral: true });
+    } else {
+        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    }
 }
 
 async function updateShowcase(interaction) {
@@ -42,14 +48,13 @@ async function updateShowcase(interaction) {
     const client = interaction.client;
 
     const configRes = await pool.query('SELECT * FROM vestuario_configs WHERE guild_id = $1', [guildId]);
-    if (configRes.rowCount === 0) return; // Não faz nada se não houver canal configurado
+    if (configRes.rowCount === 0) return;
 
     const { showcase_channel_id, showcase_message_id } = configRes.rows[0];
     if (!showcase_channel_id) return;
 
     const channel = await client.channels.fetch(showcase_channel_id).catch(() => null);
     if (!channel) {
-        // O canal foi deletado, limpar a config
         await pool.query('DELETE FROM vestuario_configs WHERE guild_id = $1', [guildId]);
         return;
     }
@@ -61,7 +66,7 @@ async function updateShowcase(interaction) {
         .setColor('#2c3e50')
         .setTitle('👕 Vestiário da Organização')
         .setDescription('Selecione uma categoria abaixo para visualizar os uniformes disponíveis.')
-        .setImage('https://i.imgur.com/your/default/image.png'); // Imagem Padrão
+        .setFooter({ text: 'Selecione uma categoria para começar.' });
 
     const components = [];
 
@@ -78,7 +83,7 @@ async function updateShowcase(interaction) {
 
         components.push(new ActionRowBuilder().addComponents(selectMenu));
     } else {
-        embed.setDescription('Nenhuma categoria de uniforme foi configurada ainda.');
+        embed.setDescription('Nenhuma categoria de uniforme foi configurada ainda. Use `/uniformesconfig` para começar.');
     }
 
     try {
@@ -86,18 +91,21 @@ async function updateShowcase(interaction) {
             const message = await channel.messages.fetch(showcase_message_id).catch(() => null);
             if (message) {
                 await message.edit({ embeds: [embed], components });
-                return; // Mensagem atualizada com sucesso
+                return;
             }
         }
-
-        // Se não havia ID ou a mensagem não foi encontrada, envia uma nova
+        
         const newMessage = await channel.send({ embeds: [embed], components });
         await pool.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
 
     } catch (error) {
-        console.error("Erro ao atualizar a vitrine:", error);
+        if (error.code === 10008) { // Unknown Message
+            const newMessage = await channel.send({ embeds: [embed], components });
+            await pool.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
+        } else {
+            console.error("Erro ao atualizar a vitrine:", error);
+        }
     }
 }
-
 
 module.exports = { showConfigPanel, updateShowcase, getDashboardStats };
