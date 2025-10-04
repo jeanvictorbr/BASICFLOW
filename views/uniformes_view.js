@@ -1,19 +1,25 @@
+// Ficheiro: views/uniformes_view.js (VERSÃO CORRIGIDA)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const db = require('../database/db');
 
 async function getDashboardStats(guildId) {
     const itemCountResult = await db.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
-    const configResult = await db.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+    const configResult = await db.query('SELECT showcase_channel_id, storage_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
     
     const itemCount = itemCountResult.rows[0]?.count || '0';
     const channelId = configResult.rows[0]?.showcase_channel_id;
+    const storageChannelId = configResult.rows[0]?.storage_channel_id;
 
-    return { itemCount, channelId };
+    return { itemCount, channelId, storageChannelId };
 }
 
 async function showConfigPanel(interaction) {
+    // Se a interação original já foi respondida, usamos editReply, senão, reply.
+    const replyMethod = interaction.deferred || interaction.replied ? 'editReply' : 'reply';
+
     const stats = await getDashboardStats(interaction.guild.id);
-    const channelMention = stats.channelId ? `<#${stats.channelId}>` : 'Nenhum canal definido';
+    const channelMention = stats.channelId ? `<#${stats.channelId}>` : '`Nenhum`';
+    const storageMention = stats.storageChannelId ? `<#${stats.storageChannelId}> (Privado)` : '`Nenhum`';
 
     const embed = new EmbedBuilder()
         .setColor('#0099ff')
@@ -21,7 +27,8 @@ async function showConfigPanel(interaction) {
         .setDescription('Utilize os botões abaixo para gerenciar os uniformes da sua organização.')
         .addFields(
             { name: 'Uniformes Cadastrados', value: stats.itemCount, inline: true },
-            { name: 'Canal da Vitrine', value: channelMention, inline: true }
+            { name: 'Canal da Vitrine', value: channelMention, inline: true },
+            { name: 'Canal de Storage', value: storageMention, inline: true }
         );
 
     const row = new ActionRowBuilder()
@@ -29,19 +36,16 @@ async function showConfigPanel(interaction) {
             new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),
             new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
             new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal Vitrine').setStyle(ButtonStyle.Primary).setEmoji('📢'),
-            new ButtonBuilder().setCustomId('uniformes_set_storage_channel').setLabel('Definir Canal Storage').setStyle(ButtonStyle.Danger).setEmoji('📦') // NOVO BOTÃO
+            new ButtonBuilder().setCustomId('uniformes_set_storage_channel').setLabel('Definir Canal Storage').setStyle(ButtonStyle.Danger).setEmoji('📦')
         );
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [row] });
-    } else {
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-    }
+    
+    await interaction[replyMethod]({ embeds: [embed], components: [row], ephemeral: true });
 }
 
-async function updateShowcase(interaction) {
-    const guildId = interaction.guild.id;
-    const client = interaction.client;
-
+// *** INÍCIO DA ALTERAÇÃO ***
+// A função agora aceita `client` e `guildId` em vez do objeto `interaction` completo.
+async function updateShowcase(client, guildId) {
+// *** FIM DA ALTERAÇÃO ***
     const configRes = await db.query('SELECT * FROM vestuario_configs WHERE guild_id = $1', [guildId]);
     if (configRes.rowCount === 0) return;
 
@@ -95,4 +99,4 @@ async function updateShowcase(interaction) {
     }
 }
 
-module.exports = { showConfigPanel, updateShowcase, getDashboardStats };
+module.exports = { showConfigPanel, updateShowcase };
