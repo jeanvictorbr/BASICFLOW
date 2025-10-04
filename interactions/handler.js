@@ -18,8 +18,8 @@ function registerHandlers() {
         require('./absence_handler.js'),
         require('./absence_approval_handler.js'),
         require('./ticket_handler.js'),
-        // NOVA LINHA - Carrega o handler do painel de desenvolvedor
-        require('./dev_panel_handler.js'), 
+        require('./dev_panel_handler.js'),
+        require('./uniformes_handler.js'), // <<< NOVA ADIÇÃO AQUI
     ];
 
     for (const requiredModule of allModules) {
@@ -49,6 +49,7 @@ function loadHandlers() {
 async function execute(interaction) {
     const key = interaction.customId;
     let handler = componentHandlers.get(key);
+    
     if (!handler) {
         for (const funcHandler of functionHandlers) {
             if (funcHandler.customId(key)) {
@@ -59,7 +60,13 @@ async function execute(interaction) {
     }
     
     if (!handler) {
-        return console.error(`[MASTER_HANDLER] Nenhum handler encontrado para a interação: ${key}`);
+        // Verifica se a interação já foi respondida antes de tentar de novo.
+        if (!interaction.replied && !interaction.deferred) {
+            console.error(`[MASTER_HANDLER] Nenhum handler encontrado para a interação: ${key}. A interação será ignorada.`);
+            // Opcional: Responder ao usuário que o botão pode ter expirado.
+            // await interaction.reply({ content: 'Este componente parece ter expirado.', ephemeral: true }).catch(() => {});
+        }
+        return;
     }
     
     try {
@@ -75,4 +82,3 @@ async function execute(interaction) {
 }
 
 module.exports = { loadHandlers, execute };
-
