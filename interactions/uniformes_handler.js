@@ -69,6 +69,8 @@ async function handleModal(interaction) {
 
             await messageWithImage.delete();
 
+            // --- QUERY CORRIGIDA ---
+            // Removida a coluna 'categoria_nome' do INSERT
             await db.query(
                 'INSERT INTO vestuario_items (guild_id, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4)',
                 [guildId, name, imageUrl, codes]
@@ -80,7 +82,7 @@ async function handleModal(interaction) {
 
         } catch (error) {
             console.error('Erro ao coletar imagem do uniforme:', error);
-            await interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada.', ephemeral: true });
+            await interaction.followUp({ content: '⏰ Tempo esgotado ou erro no banco de dados. A operação foi cancelada.', ephemeral: true });
         }
     }
 }
