@@ -44,7 +44,6 @@ async function getConfigDashboardPayload(guild, userId) {
     const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
 
     const components = [
-        // Título Principal
         {
             type: ComponentType.TextDisplay,
             content: '# ⚙️ Painel de Configuração do BasicFlow\nUtilize os botões para configurar as funcionalidades do bot.',
@@ -55,7 +54,8 @@ async function getConfigDashboardPayload(guild, userId) {
         {
             type: ComponentType.Container,
             color: 0x5865F2, // Azul Discord
-            children: [
+            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
+            components: [
                 { type: ComponentType.TextDisplay, content: '### 📝 Configurações de Registo' },
                 createSettingSection('Canal de Logs', formatSettingText(settings, 'registration_channel_id', 'channel'), 'config_set_registration_channel', ButtonStyle.Primary),
                 createSettingSection('Cargo de Membro', formatSettingText(settings, 'registered_role_id', 'role'), 'config_set_registered_role', ButtonStyle.Primary),
@@ -68,7 +68,8 @@ async function getConfigDashboardPayload(guild, userId) {
         {
             type: ComponentType.Container,
             color: 0x3498DB, // Azul Claro
-            children: [
+            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
+            components: [
                 { type: ComponentType.TextDisplay, content: '### 🏝️ Configurações de Ausência' },
                 createSettingSection('Canal de Logs', formatSettingText(settings, 'absence_channel_id', 'channel'), 'config_set_absence_channel', ButtonStyle.Primary),
                 createSettingSection('Cargo de Ausente', formatSettingText(settings, 'absence_role_id', 'role'), 'config_set_absence_role', ButtonStyle.Primary),
@@ -80,7 +81,8 @@ async function getConfigDashboardPayload(guild, userId) {
         {
             type: ComponentType.Container,
             color: 0xE74C3C, // Vermelho
-            children: [
+            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
+            components: [
                 { type: ComponentType.TextDisplay, content: '### 🎫 Configurações de Ticket' },
                 createSettingSection('Categoria', formatSettingText(settings, 'ticket_category_id', 'channel'), 'config_set_ticket_category', ButtonStyle.Primary),
                 createSettingSection('Cargo de Suporte', formatSettingText(settings, 'support_role_id', 'role'), 'config_set_support_role', ButtonStyle.Primary),
@@ -90,8 +92,7 @@ async function getConfigDashboardPayload(guild, userId) {
         },
         { type: ComponentType.Separator },
 
-        // *** INÍCIO DA CORREÇÃO ***
-        // Botões de Ação, agora construídos como objetos JSON puros, dentro de um componente ActionRow.
+        // Botões de Ação
         {
             type: ComponentType.ActionRow,
             components: [
@@ -106,10 +107,8 @@ async function getConfigDashboardPayload(guild, userId) {
                 { type: ComponentType.Button, style: ButtonStyle.Secondary, label: 'Ver Atualizações', custom_id: 'config_view_changelog' },
             ]
         },
-        // *** FIM DA CORREGEÇÃO ***
     ];
     
-    // Adiciona o botão de desenvolvedor secreto, se for o dono
     if (userId === process.env.OWNER_ID) {
         components.push({
             type: ComponentType.ActionRow,
