@@ -11,8 +11,10 @@ const createTablesSQL = `
         registered_role_id VARCHAR(255),
         absence_role_id VARCHAR(255)
     );
+
     CREATE TABLE IF NOT EXISTS registrations ( /* ... Tabela sem alterações ... */ );
     CREATE TABLE IF NOT EXISTS absences ( /* ... Tabela sem alterações ... */ );
+
     CREATE TABLE IF NOT EXISTS tickets (
         ticket_id SERIAL PRIMARY KEY,
         guild_id VARCHAR(255) NOT NULL,
@@ -20,38 +22,38 @@ const createTablesSQL = `
         channel_id VARCHAR(255) NOT NULL,
         is_open BOOLEAN DEFAULT TRUE
     );
-        -- NOVA TABELA GLOBAL PARA ATUALIZAÇÕES
+
+    -- NOVA TABELA GLOBAL PARA ATUALIZAÇÕES
     CREATE TABLE IF NOT EXISTS changelog_updates (
         update_id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT NOT NULL,
         timestamp BIGINT NOT NULL
     );
+
+    -- TABELAS PARA O NOVO SISTEMA DE VESTIÁRIO
+    CREATE TABLE IF NOT EXISTS vestuario_configs (
+        guild_id VARCHAR(255) PRIMARY KEY,
+        showcase_channel_id VARCHAR(255),
+        showcase_message_id VARCHAR(255)
+    );
+
+    CREATE TABLE IF NOT EXISTS vestuario_categorias (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        UNIQUE(guild_id, nome)
+    );
+
+    CREATE TABLE IF NOT EXISTS vestuario_items (
+        id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        categoria_nome VARCHAR(255) NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        imagem_url TEXT,
+        codigos TEXT NOT NULL
+    );
 `;
-// Tabelas para o Sistema de Vestiário Dinâmico
-await client.query(`
-  CREATE TABLE IF NOT EXISTS vestuario_configs (
-    guild_id VARCHAR(255) PRIMARY KEY,
-    showcase_channel_id VARCHAR(255),
-    showcase_message_id VARCHAR(255)
-  );
-
-  CREATE TABLE IF NOT EXISTS vestuario_categorias (
-    id SERIAL PRIMARY KEY,
-    guild_id VARCHAR(255) NOT NULL,
-    nome VARCHAR(255) NOT NULL,
-    UNIQUE(guild_id, nome)
-  );
-
-  CREATE TABLE IF NOT EXISTS vestuario_items (
-    id SERIAL PRIMARY KEY,
-    guild_id VARCHAR(255) NOT NULL,
-    categoria_id INTEGER REFERENCES vestuario_categorias(id) ON DELETE CASCADE,
-    nome VARCHAR(255) NOT NULL,
-    imagem_url TEXT,
-    codigos TEXT NOT NULL
-  );
-`);
 
 async function checkAndAlterTables() {
     // Adicionamos as novas colunas para tickets aqui

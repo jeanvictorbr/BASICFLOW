@@ -2,7 +2,6 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const pool = require('../database/db');
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
 
-// Funções de lógica interna (não exportadas diretamente)
 async function handleButton(interaction) {
     const customId = interaction.customId;
 
@@ -25,6 +24,7 @@ async function handleButton(interaction) {
             new ActionRowBuilder().addComponents(codesInput)
         );
         await interaction.showModal(modal);
+
     } else if (customId.startsWith('uniformes_copy_code_')) {
         const itemId = customId.split('_').pop();
         const itemRes = await pool.query('SELECT nome, codigos FROM vestuario_items WHERE id = $1', [itemId]);
@@ -36,6 +36,7 @@ async function handleButton(interaction) {
                 .setColor('Green');
             await interaction.reply({ embeds: [embed], ephemeral: true });
         }
+
     } else if (customId === 'uniformes_manage_categories') {
         const categoriesRes = await pool.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
         const currentCategories = categoriesRes.rows.map(row => row.nome).join('\n');
@@ -53,6 +54,7 @@ async function handleButton(interaction) {
         
         modal.addComponents(new ActionRowBuilder().addComponents(textInput));
         await interaction.showModal(modal);
+
     } else if (customId === 'uniformes_set_channel') {
         const menu = new ChannelSelectMenuBuilder()
             .setCustomId('uniformes_set_showcase_channel')
@@ -74,11 +76,11 @@ async function handleModal(interaction) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            // Antes de apagar, vamos verificar se algum item usa as categorias que serão removidas
-            // (Lógica mais complexa, por agora vamos manter simples)
             await client.query('DELETE FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
             for (const name of newCategories) {
-                await client.query('INSERT INTO vestuario_categorias (guild_id, nome) VALUES ($1, $2) ON CONFLICT (guild_id, nome) DO NOTHING', [guildId, name]);
+                if (name) { // Garante que não insere nomes vazios
+                    await client.query('INSERT INTO vestuario_categorias (guild_id, nome) VALUES ($1, $2) ON CONFLICT (guild_id, nome) DO NOTHING', [guildId, name]);
+                }
             }
             await client.query('COMMIT');
         } catch (e) {
@@ -123,12 +125,13 @@ async function handleStringSelect(interaction) {
         const itemsRes = await pool.query('SELECT * FROM vestuario_items WHERE guild_id = $1 AND categoria_nome = $2 ORDER BY nome', [interaction.guild.id, categoryName]);
         
         if (itemsRes.rowCount === 0) {
-            return interaction.editReply({ content: 'ℹ️ Não há uniformes cadastrados nesta categoria.', ephemeral: true });
+            return interaction.editReply({ content: 'ℹ️ Não há uniformes cadastrados nesta categoria.' });
         }
 
-        let embeds = [];
-        let components = [];
-        for (const [index, item] of itemsRes.rows.entries()) {
+        const embeds = [];
+        const components = [];
+
+        for (const item of itemsRes.rows) {
             const itemEmbed = new EmbedBuilder()
                 .setTitle(item.nome)
                 .setImage(item.imagem_url)
@@ -142,15 +145,14 @@ async function handleStringSelect(interaction) {
             
             embeds.push(itemEmbed);
             components.push(new ActionRowBuilder().addComponents(copyButton));
-
-            // Para evitar flood, envia em blocos de 5
-            if ((index + 1) % 5 === 0 || index === itemsRes.rows.length - 1) {
-                await interaction.followUp({ embeds, components, ephemeral: true });
-                embeds = [];
-                components = [];
-            }
         }
-        await interaction.editReply({ content: `Exibindo ${itemsRes.rowCount} uniformes da categoria **${categoryName}**:`, embeds: [], components: [] });
+
+        // Limita a 10 embeds por resposta (limite do Discord)
+        await interaction.editReply({ 
+            content: `Exibindo ${itemsRes.rowCount} uniformes da categoria **${categoryName}**:`, 
+            embeds: embeds.slice(0, 10), 
+            components: components.slice(0, 5) // Limita a 5 action rows
+        });
     }
 }
 
@@ -169,7 +171,6 @@ async function handleChannelSelect(interaction) {
     }
 }
 
-// O módulo exportado agora segue o padrão do seu handler.js
 module.exports = {
     customId: (customId) => customId.startsWith('uniformes_'),
     async execute(interaction) {
