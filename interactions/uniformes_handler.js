@@ -17,16 +17,6 @@ async function handleButton(interaction) {
         );
         await interaction.showModal(modal);
 
-    } else if (customId.startsWith('uniformes_copy_code_')) {
-        const itemId = customId.split('_').pop();
-        const itemRes = await db.query('SELECT nome, codigos FROM vestuario_items WHERE id = $1', [itemId]);
-        if(itemRes.rowCount > 0) {
-            const item = itemRes.rows[0];
-            await interaction.reply({ 
-                content: `**Códigos para o uniforme "${item.nome}":**\n\`\`\`\n${item.codigos}\n\`\`\``, 
-                ephemeral: true 
-            });
-        }
     } else if (customId === 'uniformes_set_channel') {
         const menu = new ChannelSelectMenuBuilder()
             .setCustomId('uniformes_set_showcase_channel')
@@ -35,6 +25,7 @@ async function handleButton(interaction) {
         
         const row = new ActionRowBuilder().addComponents(menu);
         await interaction.reply({ content: 'Por favor, selecione em qual canal a vitrine de uniformes deve ser exibida.', components: [row], ephemeral: true });
+
     } else if (customId === 'uniformes_edit_remove_item') {
         const itemsRes = await db.query('SELECT id, nome FROM vestuario_items WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
         if (itemsRes.rowCount === 0) {
@@ -69,10 +60,8 @@ async function handleModal(interaction) {
 
             await messageWithImage.delete();
 
-            // --- QUERY CORRIGIDA ---
-            // Removida a coluna 'categoria_nome' do INSERT
             await db.query(
-                'INSERT INTO vestuario_items (guild_id, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4)',
+                'INSERT INTO vestuario_items (guild_id, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4) ON CONFLICT (guild_id, nome) DO UPDATE SET imagem_url = $3, codigos = $4',
                 [guildId, name, imageUrl, codes]
             );
 
@@ -88,27 +77,35 @@ async function handleModal(interaction) {
 }
 
 async function handleStringSelect(interaction) {
+    // --- LÓGICA PRINCIPAL ALTERADA AQUI ---
     if (interaction.customId === 'uniformes_showcase_select') {
         const itemId = interaction.values[0].replace('uniformes_item_', '');
         const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
 
         if (itemRes.rowCount === 0) {
-            return interaction.reply({ content: 'Este uniforme não foi encontrado.', ephemeral: true });
+            // Edita a mensagem principal para informar que o item sumiu
+            return interaction.update({ 
+                content: 'Ops! Este uniforme não existe mais.', 
+                embeds: [], 
+                components: interaction.message.components 
+            });
         }
 
         const item = itemRes.rows[0];
-        const embed = new EmbedBuilder()
+
+        // Cria o novo embed com a foto e os códigos
+        const updatedEmbed = new EmbedBuilder()
+            .setColor('#3498db')
             .setTitle(item.nome)
             .setImage(item.imagem_url)
-            .setColor('#3498db');
-
-        const copyButton = new ButtonBuilder()
-            .setCustomId(`uniformes_copy_code_${item.id}`)
-            .setLabel('Copiar Uniforme')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('✅');
+            .addFields({
+                name: 'Códigos (Preset)',
+                value: '```\n' + item.codigos + '\n```'
+            })
+            .setFooter({ text: 'Copie os códigos acima para usar em jogo.' });
         
-        await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(copyButton)], ephemeral: true });
+        // Atualiza a mensagem original, mantendo o menu de seleção no topo
+        await interaction.update({ embeds: [updatedEmbed], components: interaction.message.components });
     }
 }
 

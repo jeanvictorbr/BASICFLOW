@@ -60,7 +60,8 @@ async function updateShowcase(interaction) {
     const embed = new EmbedBuilder()
         .setColor('#2c3e50')
         .setTitle('👕 Vestiário da Organização')
-        .setDescription('Selecione um uniforme no menu abaixo para ver a imagem e copiar os códigos.');
+        .setDescription('Selecione um uniforme no menu abaixo para ver a imagem e copiar os códigos.')
+        .setFooter({ text: 'Aguardando seleção de uniforme...' });
 
     const components = [];
 
@@ -73,7 +74,7 @@ async function updateShowcase(interaction) {
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('uniformes_showcase_select')
             .setPlaceholder('Selecione um uniforme...')
-            .addOptions(itemOptions.slice(0, 25)); // Limite de 25 opções por menu
+            .addOptions(itemOptions.slice(0, 25));
 
         components.push(new ActionRowBuilder().addComponents(selectMenu));
     } else {
