@@ -20,9 +20,7 @@ async function getChangelogPayload(page = 1) {
         const totalPages = Math.ceil(totalUpdates / UPDATES_PER_PAGE) || 1;
         page = Math.max(1, Math.min(page, totalPages));
 
-        const components = [
-            { type: ComponentType.TextDisplay, content: '# 📰 Atualizações Recentes do BasicFlow' }
-        ];
+        const components = [{ type: ComponentType.TextDisplay, content: '# 📰 Atualizações Recentes do BasicFlow' }];
 
         if (updates.length === 0) {
             components.push({ type: ComponentType.TextDisplay, content: '*Ainda não há nenhuma atualização para mostrar.*' });
@@ -35,13 +33,11 @@ async function getChangelogPayload(page = 1) {
                         { type: ComponentType.TextDisplay, content: `### ${update.title}` },
                         { type: ComponentType.TextDisplay, content: update.description }
                     ],
-                    // *** INÍCIO DA CORREÇÃO ***
                     accessory: {
                         type: ComponentType.Thumbnail,
-                        image_url: "https://i.imgur.com/YuK1aVN.gif", // A sintaxe correta não usa "media" aqui.
+                        image_url: "https://i.imgur.com/YuK1aVN.gif", // A sintaxe correta é esta
                         size: 'lg'
                     }
-                    // *** FIM DA CORREÇÃO ***
                 });
             }
         }
@@ -49,8 +45,7 @@ async function getChangelogPayload(page = 1) {
         if (page === totalPages && PROMOTION_DATA) {
             components.push({ type: ComponentType.Separator });
             components.push({
-                type: ComponentType.Container,
-                color: 0x5865F2,
+                type: ComponentType.Container, color: 0x5865F2,
                 components: [
                     { type: ComponentType.TextDisplay, content: `## ${PROMOTION_DATA.title}` },
                     { type: ComponentType.TextDisplay, content: PROMOTION_DATA.description }

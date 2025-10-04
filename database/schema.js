@@ -10,7 +10,6 @@ const createTablesSQL = `
         absence_role_id VARCHAR(255)
     );
 
-    -- *** INÍCIO DA CORREÇÃO: Definição completa das tabelas ***
     CREATE TABLE IF NOT EXISTS registrations (
         registration_id SERIAL PRIMARY KEY,
         guild_id VARCHAR(255) NOT NULL,
@@ -33,7 +32,6 @@ const createTablesSQL = `
         approver_id VARCHAR(255),
         timestamp BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)
     );
-    -- *** FIM DA CORREÇÃO ***
 
     CREATE TABLE IF NOT EXISTS tickets (
         ticket_id SERIAL PRIMARY KEY,
@@ -69,47 +67,35 @@ const createTablesSQL = `
 async function checkAndAlterTables() {
     const columnsToAdd = {
         'guild_settings': {
-            'nickname_tag': 'VARCHAR(16)',
-            'registration_panel_image_url': 'TEXT',
-            'ticket_category_id': 'VARCHAR(255)',
-            'support_role_id': 'VARCHAR(255)',
-            'ticket_log_channel_id': 'VARCHAR(255)',
-            'absence_panel_image_url': 'TEXT',
-            'ticket_panel_image_url': 'TEXT'
+            'nickname_tag': 'VARCHAR(16)', 'registration_panel_image_url': 'TEXT', 'ticket_category_id': 'VARCHAR(255)',
+            'support_role_id': 'VARCHAR(255)', 'ticket_log_channel_id': 'VARCHAR(255)', 'absence_panel_image_url': 'TEXT', 'ticket_panel_image_url': 'TEXT'
         },
-        'tickets': {
-            'closed_by': 'VARCHAR(255)',
-            'close_reason': 'TEXT',
-            'claimed_by': 'VARCHAR(255)'
-        },
-        'vestuario_configs': {
-            'storage_channel_id': 'VARCHAR(255)'
-        },
-        // *** INÍCIO DA CORREÇÃO: Adiciona verificação para tabelas de registo e ausência ***
+        'tickets': { 'closed_by': 'VARCHAR(255)', 'close_reason': 'TEXT', 'claimed_by': 'VARCHAR(255)' },
+        // *** INÍCIO DA CORREÇÃO DEFINITIVA ***
         'registrations': {
-            'guild_id': 'VARCHAR(255)',
-            'rp_name': 'TEXT',
-            'game_id': 'TEXT',
-            'approver_id': 'VARCHAR(255)',
-            'timestamp': 'BIGINT'
+            'guild_id': 'VARCHAR(255)', 'user_id': 'VARCHAR(255)', 'rp_name': 'TEXT', 'game_id': 'TEXT',
+            'status': "VARCHAR(50) DEFAULT 'pending'", 'approver_id': 'VARCHAR(255)', 'timestamp': 'BIGINT'
         },
         'absences': {
-            'guild_id': 'VARCHAR(255)',
-            'start_date': 'BIGINT',
-            'end_date': 'BIGINT',
-            'approver_id': 'VARCHAR(255)',
-            'timestamp': 'BIGINT'
+            'guild_id': 'VARCHAR(255)', 'user_id': 'VARCHAR(255)', 'start_date': 'BIGINT', 'end_date': 'BIGINT',
+            'reason': 'TEXT', 'status': "VARCHAR(50) DEFAULT 'pending'", 'approver_id': 'VARCHAR(255)', 'timestamp': 'BIGINT'
         }
-        // *** FIM DA CORREÇÃO ***
+        // *** FIM DA CORREÇÃO DEFINITIVA ***
     };
 
     const addColumnIfNotExists = async (tableName, columns) => {
         for (const [column, type] of Object.entries(columns)) {
-            const res = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`, [tableName, column]);
-            if (res.rowCount === 0) {
-                console.log(`[DATABASE] Coluna "${column}" não encontrada na tabela "${tableName}". Adicionando...`);
-                await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${column} ${type}`);
-                console.log(`[DATABASE] Coluna "${column}" adicionada com sucesso.`);
+            try {
+                const res = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`, [tableName, column]);
+                if (res.rowCount === 0) {
+                    console.log(`[DATABASE] Coluna "${column}" não encontrada na tabela "${tableName}". Adicionando...`);
+                    await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${column} ${type}`);
+                    console.log(`[DATABASE] Coluna "${column}" adicionada com sucesso.`);
+                }
+            } catch (err) {
+                if (err.code !== '42P01') { // Ignora erro "tabela não existe" que pode acontecer em setup inicial
+                    console.error(`[DATABASE] Erro ao adicionar coluna "${column}" em "${tableName}":`, err.message);
+                }
             }
         }
     };
@@ -119,10 +105,8 @@ async function checkAndAlterTables() {
             await addColumnIfNotExists(tableName, columns);
         }
     } catch (error) {
-        if (error.code !== '42P01') { // Ignora erro "tabela não existe"
-            console.error(`[DATABASE] Erro ao verificar/alterar tabelas:`, error);
-            throw error;
-        }
+        console.error(`[DATABASE] Erro crítico ao verificar/alterar tabelas:`, error);
+        throw error;
     }
 }
 
@@ -130,10 +114,9 @@ async function initializeDatabase() {
     try {
         console.log('[DATABASE] Verificando o esquema do banco de dados...');
         await db.query('DROP TABLE IF EXISTS vestuario_categorias CASCADE;').catch(() => {});
-
         await db.query(createTablesSQL);
-        await checkAndAlterTables(); // Esta função agora corrige todas as tabelas.
-        console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
+        await checkAndAlterTables();
+        console.log('[DATABASE] Esquema do banco de dados verificado e sincronizado com sucesso.');
     } catch (error) {
         console.error('[DATABASE] Erro crítico ao inicializar o banco de dados:', error);
         process.exit(1);
