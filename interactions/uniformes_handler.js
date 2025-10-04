@@ -1,12 +1,12 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
-const pool = require('../database/db');
+const db = require('../database/db'); // Alterado de 'pool' para 'db' para corresponder ao seu padrão
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
 
 async function handleButton(interaction) {
     const customId = interaction.customId;
 
     if (customId === 'uniformes_add_item') {
-        const categoriesRes = await pool.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1', [interaction.guild.id]);
+        const categoriesRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1', [interaction.guild.id]);
         if (categoriesRes.rowCount === 0) {
             return interaction.reply({ content: '❌ Você precisa criar pelo menos uma categoria antes de adicionar um uniforme.', ephemeral: true });
         }
@@ -27,7 +27,7 @@ async function handleButton(interaction) {
 
     } else if (customId.startsWith('uniformes_copy_code_')) {
         const itemId = customId.split('_').pop();
-        const itemRes = await pool.query('SELECT nome, codigos FROM vestuario_items WHERE id = $1', [itemId]);
+        const itemRes = await db.query('SELECT nome, codigos FROM vestuario_items WHERE id = $1', [itemId]);
         if(itemRes.rowCount > 0) {
             const item = itemRes.rows[0];
             const embed = new EmbedBuilder()
@@ -38,7 +38,7 @@ async function handleButton(interaction) {
         }
 
     } else if (customId === 'uniformes_manage_categories') {
-        const categoriesRes = await pool.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
+        const categoriesRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
         const currentCategories = categoriesRes.rows.map(row => row.nome).join('\n');
 
         const modal = new ModalBuilder()
@@ -73,22 +73,21 @@ async function handleModal(interaction) {
         const newCategoriesText = interaction.fields.getTextInputValue('categories_input');
         const newCategories = newCategoriesText.split('\n').map(name => name.trim()).filter(name => name);
         
-        const client = await pool.connect();
+        // --- BLOCO CORRIGIDO ---
+        // Removido o uso de pool.connect() e substituído por chamadas diretas a db.query
         try {
-            await client.query('BEGIN');
-            await client.query('DELETE FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
+            await db.query('DELETE FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
             for (const name of newCategories) {
-                if (name) { // Garante que não insere nomes vazios
-                    await client.query('INSERT INTO vestuario_categorias (guild_id, nome) VALUES ($1, $2) ON CONFLICT (guild_id, nome) DO NOTHING', [guildId, name]);
+                if (name) {
+                    await db.query('INSERT INTO vestuario_categorias (guild_id, nome) VALUES ($1, $2) ON CONFLICT (guild_id, nome) DO NOTHING', [guildId, name]);
                 }
             }
-            await client.query('COMMIT');
-        } catch (e) {
-            await client.query('ROLLBACK');
-            throw e;
-        } finally {
-            client.release();
+        } catch (error) {
+            console.error('Erro ao atualizar categorias no DB:', error);
+            await interaction.followUp({ content: 'Ocorreu um erro ao salvar as categorias no banco de dados.', ephemeral: true });
+            return;
         }
+        // --- FIM DO BLOCO CORRIGIDO ---
 
         await updateShowcase(interaction);
         await showConfigPanel(interaction);
@@ -101,13 +100,13 @@ async function handleModal(interaction) {
         const imageUrl = interaction.fields.getTextInputValue('item_image');
         const codes = interaction.fields.getTextInputValue('item_codes');
 
-        const categoryRes = await pool.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 AND nome = $2', [guildId, categoryName]);
+        const categoryRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 AND nome = $2', [guildId, categoryName]);
         if (categoryRes.rowCount === 0) {
             await interaction.followUp({ content: `❌ A categoria "${categoryName}" não existe. Verifique o nome exato (maiúsculas/minúsculas) e tente novamente.`, ephemeral: true });
             return;
         }
         
-        await pool.query(
+        await db.query(
             'INSERT INTO vestuario_items (guild_id, categoria_nome, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4, $5)',
             [guildId, categoryName, name, imageUrl, codes]
         );
@@ -122,7 +121,7 @@ async function handleStringSelect(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const categoryName = interaction.values[0].replace('uniformes_cat_', '').replace(/_/g, ' ');
         
-        const itemsRes = await pool.query('SELECT * FROM vestuario_items WHERE guild_id = $1 AND categoria_nome = $2 ORDER BY nome', [interaction.guild.id, categoryName]);
+        const itemsRes = await db.query('SELECT * FROM vestuario_items WHERE guild_id = $1 AND categoria_nome = $2 ORDER BY nome', [interaction.guild.id, categoryName]);
         
         if (itemsRes.rowCount === 0) {
             return interaction.editReply({ content: 'ℹ️ Não há uniformes cadastrados nesta categoria.' });
@@ -147,11 +146,10 @@ async function handleStringSelect(interaction) {
             components.push(new ActionRowBuilder().addComponents(copyButton));
         }
 
-        // Limita a 10 embeds por resposta (limite do Discord)
         await interaction.editReply({ 
             content: `Exibindo ${itemsRes.rowCount} uniformes da categoria **${categoryName}**:`, 
             embeds: embeds.slice(0, 10), 
-            components: components.slice(0, 5) // Limita a 5 action rows
+            components: components.slice(0, 5)
         });
     }
 }
@@ -161,7 +159,7 @@ async function handleChannelSelect(interaction) {
         await interaction.deferUpdate();
         const channelId = interaction.values[0];
 
-        await pool.query(
+        await db.query(
             'INSERT INTO vestuario_configs (guild_id, showcase_channel_id) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET showcase_channel_id = $2, showcase_message_id = NULL',
             [interaction.guild.id, channelId]
         );

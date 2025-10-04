@@ -1,10 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
-const pool = require('../database/db');
+const db = require('../database/db'); // Alterado de 'pool' para 'db'
 
 async function getDashboardStats(guildId) {
-    const categoryCountResult = await pool.query('SELECT COUNT(*) FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
-    const itemCountResult = await pool.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
-    const configResult = await pool.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+    const categoryCountResult = await db.query('SELECT COUNT(*) FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
+    const itemCountResult = await db.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
+    const configResult = await db.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
 
     const categoryCount = categoryCountResult.rows[0]?.count || '0';
     const itemCount = itemCountResult.rows[0]?.count || '0';
@@ -14,6 +14,7 @@ async function getDashboardStats(guildId) {
 }
 
 async function showConfigPanel(interaction) {
+    // ... (o resto da função continua igual, já corrigida no erro anterior)
     const stats = await getDashboardStats(interaction.guild.id);
     const channelMention = stats.channelId ? `<#${stats.channelId}>` : 'Nenhum canal definido';
 
@@ -29,15 +30,14 @@ async function showConfigPanel(interaction) {
 
     const row = new ActionRowBuilder()
         .addComponents(
-            new ButtonBuilder().setCustomId('uniformes_manage_categories').setLabel('Gerenciar Categorias').setStyle(ButtonStyle.Primary).setEmoji('📚'), // EMOJI CORRIGIDO
-            new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),      // EMOJI CORRIGIDO
-            new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'), // EMOJI CORRIGIDO
+            new ButtonBuilder().setCustomId('uniformes_manage_categories').setLabel('Gerenciar Categorias').setStyle(ButtonStyle.Primary).setEmoji('📚'),
+            new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),
+            new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
             new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal').setStyle(ButtonStyle.Danger).setEmoji('📢')
         );
 
-    // Verifica se a interação já foi respondida
     if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [row], ephemeral: true });
+        await interaction.editReply({ embeds: [embed], components: [row] });
     } else {
         await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
@@ -47,7 +47,7 @@ async function updateShowcase(interaction) {
     const guildId = interaction.guild.id;
     const client = interaction.client;
 
-    const configRes = await pool.query('SELECT * FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+    const configRes = await db.query('SELECT * FROM vestuario_configs WHERE guild_id = $1', [guildId]);
     if (configRes.rowCount === 0) return;
 
     const { showcase_channel_id, showcase_message_id } = configRes.rows[0];
@@ -55,11 +55,11 @@ async function updateShowcase(interaction) {
 
     const channel = await client.channels.fetch(showcase_channel_id).catch(() => null);
     if (!channel) {
-        await pool.query('DELETE FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+        await db.query('DELETE FROM vestuario_configs WHERE guild_id = $1', [guildId]);
         return;
     }
 
-    const categoriesRes = await pool.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [guildId]);
+    const categoriesRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [guildId]);
     const categories = categoriesRes.rows;
 
     const embed = new EmbedBuilder()
@@ -96,12 +96,12 @@ async function updateShowcase(interaction) {
         }
         
         const newMessage = await channel.send({ embeds: [embed], components });
-        await pool.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
+        await db.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
 
     } catch (error) {
-        if (error.code === 10008) { // Unknown Message
+        if (error.code === 10008) {
             const newMessage = await channel.send({ embeds: [embed], components });
-            await pool.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
+            await db.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
         } else {
             console.error("Erro ao atualizar a vitrine:", error);
         }
