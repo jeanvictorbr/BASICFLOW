@@ -1,36 +1,31 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
-const db = require('../database/db'); // Alterado de 'pool' para 'db'
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const db = require('../database/db');
 
 async function getDashboardStats(guildId) {
-    const categoryCountResult = await db.query('SELECT COUNT(*) FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
     const itemCountResult = await db.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
     const configResult = await db.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
-
-    const categoryCount = categoryCountResult.rows[0]?.count || '0';
+    
     const itemCount = itemCountResult.rows[0]?.count || '0';
     const channelId = configResult.rows[0]?.showcase_channel_id;
 
-    return { categoryCount, itemCount, channelId };
+    return { itemCount, channelId };
 }
 
 async function showConfigPanel(interaction) {
-    // ... (o resto da função continua igual, já corrigida no erro anterior)
     const stats = await getDashboardStats(interaction.guild.id);
     const channelMention = stats.channelId ? `<#${stats.channelId}>` : 'Nenhum canal definido';
 
     const embed = new EmbedBuilder()
         .setColor('#0099ff')
-        .setTitle('👔 Painel de Gestão do Vestiário')
-        .setDescription('Utilize os botões abaixo para configurar as categorias e uniformes da sua organização.')
+        .setTitle('👔 Painel de Gestão de Uniformes')
+        .setDescription('Utilize os botões abaixo para gerenciar os uniformes da sua organização.')
         .addFields(
-            { name: 'Categorias Criadas', value: stats.categoryCount, inline: true },
             { name: 'Uniformes Cadastrados', value: stats.itemCount, inline: true },
             { name: 'Canal da Vitrine', value: channelMention, inline: true }
         );
 
     const row = new ActionRowBuilder()
         .addComponents(
-            new ButtonBuilder().setCustomId('uniformes_manage_categories').setLabel('Gerenciar Categorias').setStyle(ButtonStyle.Primary).setEmoji('📚'),
             new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),
             new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
             new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal').setStyle(ButtonStyle.Danger).setEmoji('📢')
@@ -59,52 +54,43 @@ async function updateShowcase(interaction) {
         return;
     }
 
-    const categoriesRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 ORDER BY nome', [guildId]);
-    const categories = categoriesRes.rows;
+    const itemsRes = await db.query('SELECT id, nome FROM vestuario_items WHERE guild_id = $1 ORDER BY nome', [guildId]);
+    const items = itemsRes.rows;
 
     const embed = new EmbedBuilder()
         .setColor('#2c3e50')
         .setTitle('👕 Vestiário da Organização')
-        .setDescription('Selecione uma categoria abaixo para visualizar os uniformes disponíveis.')
-        .setFooter({ text: 'Selecione uma categoria para começar.' });
+        .setDescription('Selecione um uniforme no menu abaixo para ver a imagem e copiar os códigos.');
 
     const components = [];
 
-    if (categories.length > 0) {
-        const categoryOptions = categories.map(cat => ({
-            label: cat.nome,
-            value: `uniformes_cat_${cat.nome.replace(/ /g, '_')}`,
+    if (items.length > 0) {
+        const itemOptions = items.map(item => ({
+            label: item.nome,
+            value: `uniformes_item_${item.id}`,
         }));
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('uniformes_showcase_category_select')
-            .setPlaceholder('Selecione uma categoria...')
-            .addOptions(categoryOptions);
+            .setCustomId('uniformes_showcase_select')
+            .setPlaceholder('Selecione um uniforme...')
+            .addOptions(itemOptions.slice(0, 25)); // Limite de 25 opções por menu
 
         components.push(new ActionRowBuilder().addComponents(selectMenu));
     } else {
-        embed.setDescription('Nenhuma categoria de uniforme foi configurada ainda. Use `/uniformesconfig` para começar.');
+        embed.setDescription('Nenhum uniforme foi configurado ainda. Use `/uniformesconfig` para começar.');
     }
 
     try {
-        if (showcase_message_id) {
-            const message = await channel.messages.fetch(showcase_message_id).catch(() => null);
-            if (message) {
-                await message.edit({ embeds: [embed], components });
-                return;
-            }
-        }
-        
-        const newMessage = await channel.send({ embeds: [embed], components });
-        await db.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
+        let message = showcase_message_id ? await channel.messages.fetch(showcase_message_id).catch(() => null) : null;
 
-    } catch (error) {
-        if (error.code === 10008) {
+        if (message) {
+            await message.edit({ embeds: [embed], components });
+        } else {
             const newMessage = await channel.send({ embeds: [embed], components });
             await db.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
-        } else {
-            console.error("Erro ao atualizar a vitrine:", error);
         }
+    } catch (error) {
+        console.error("Erro ao atualizar a vitrine:", error);
     }
 }
 
