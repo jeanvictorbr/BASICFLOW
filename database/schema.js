@@ -32,7 +32,8 @@ const createTablesSQL = `
     CREATE TABLE IF NOT EXISTS vestuario_configs (
         guild_id VARCHAR(255) PRIMARY KEY,
         showcase_channel_id VARCHAR(255),
-        showcase_message_id VARCHAR(255)
+        showcase_message_id VARCHAR(255),
+        storage_channel_id VARCHAR(255)
     );
 
     CREATE TABLE IF NOT EXISTS vestuario_items (

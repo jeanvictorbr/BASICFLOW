@@ -28,9 +28,9 @@ async function showConfigPanel(interaction) {
         .addComponents(
             new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),
             new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
-            new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal').setStyle(ButtonStyle.Danger).setEmoji('📢')
+            new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal Vitrine').setStyle(ButtonStyle.Primary).setEmoji('📢'),
+            new ButtonBuilder().setCustomId('uniformes_set_storage_channel').setLabel('Definir Canal Storage').setStyle(ButtonStyle.Danger).setEmoji('📦') // NOVO BOTÃO
         );
-
     if (interaction.replied || interaction.deferred) {
         await interaction.editReply({ embeds: [embed], components: [row] });
     } else {
