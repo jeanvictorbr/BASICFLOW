@@ -1,6 +1,4 @@
 // Ficheiro: database/schema.js
-// Responsável por garantir que a estrutura da base de dados está correta e atualizada.
-
 const db = require('../database/db.js');
 
 const createTablesSQL = `
@@ -23,7 +21,6 @@ const createTablesSQL = `
         is_open BOOLEAN DEFAULT TRUE
     );
 
-    -- NOVA TABELA GLOBAL PARA ATUALIZAÇÕES
     CREATE TABLE IF NOT EXISTS changelog_updates (
         update_id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
@@ -31,40 +28,32 @@ const createTablesSQL = `
         timestamp BIGINT NOT NULL
     );
 
-    -- TABELAS PARA O NOVO SISTEMA DE VESTIÁRIO
+    -- TABELAS DO VESTIÁRIO (VERSÃO FINAL SEM CATEGORIAS)
     CREATE TABLE IF NOT EXISTS vestuario_configs (
         guild_id VARCHAR(255) PRIMARY KEY,
         showcase_channel_id VARCHAR(255),
         showcase_message_id VARCHAR(255)
     );
 
-    CREATE TABLE IF NOT EXISTS vestuario_categorias (
-        id SERIAL PRIMARY KEY,
-        guild_id VARCHAR(255) NOT NULL,
-        nome VARCHAR(255) NOT NULL,
-        UNIQUE(guild_id, nome)
-    );
-
     CREATE TABLE IF NOT EXISTS vestuario_items (
         id SERIAL PRIMARY KEY,
         guild_id VARCHAR(255) NOT NULL,
-        categoria_nome VARCHAR(255) NOT NULL,
         nome VARCHAR(255) NOT NULL,
         imagem_url TEXT,
-        codigos TEXT NOT NULL
+        codigos TEXT NOT NULL,
+        UNIQUE(guild_id, nome)
     );
 `;
 
 async function checkAndAlterTables() {
-    // Adicionamos as novas colunas para tickets aqui
     const guildSettingsColumns = {
         'nickname_tag': 'VARCHAR(16)',
         'registration_panel_image_url': 'TEXT',
         'ticket_category_id': 'VARCHAR(255)',
         'support_role_id': 'VARCHAR(255)',
         'ticket_log_channel_id': 'VARCHAR(255)',
-        'absence_panel_image_url': 'TEXT', // NOVA COLUNA
-        'ticket_panel_image_url': 'TEXT'    // NOVA COLUNA
+        'absence_panel_image_url': 'TEXT',
+        'ticket_panel_image_url': 'TEXT'
     };
 
     const ticketsColumns = {
@@ -73,14 +62,12 @@ async function checkAndAlterTables() {
         'claimed_by': 'VARCHAR(255)'
     };
 
-    // Função auxiliar para adicionar colunas
     const addColumnIfNotExists = async (tableName, columns) => {
         for (const [column, type] of Object.entries(columns)) {
             const res = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`, [tableName, column]);
             if (res.rowCount === 0) {
                 console.log(`[DATABASE] Coluna "${column}" não encontrada na tabela "${tableName}". Adicionando...`);
                 await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${column} ${type}`);
-                console.log(`[DATABASE] Coluna "${column}" adicionada com sucesso.`);
             }
         }
     };
@@ -89,7 +76,7 @@ async function checkAndAlterTables() {
         await addColumnIfNotExists('guild_settings', guildSettingsColumns);
         await addColumnIfNotExists('tickets', ticketsColumns);
     } catch (error) {
-        if (error.code !== '42P01') { // Ignora erro "table does not exist"
+        if (error.code !== '42P01') {
             console.error(`[DATABASE] Erro ao verificar/alterar tabelas:`, error);
             throw error;
         }
@@ -100,6 +87,8 @@ async function initializeDatabase() {
     try {
         console.log('[DATABASE] Verificando o esquema do banco de dados...');
         await db.query(createTablesSQL);
+        // Tenta remover a tabela antiga de categorias, se existir. Ignora o erro se ela não existir.
+        await db.query('DROP TABLE IF EXISTS vestuario_categorias;').catch(() => {});
         await checkAndAlterTables();
         console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
     } catch (error) {
