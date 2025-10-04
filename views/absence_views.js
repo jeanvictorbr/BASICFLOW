@@ -1,4 +1,4 @@
-// Ficheiro: views/absence_views.js (VERSÃO FINAL COM IMAGEM CORRIGIDA)
+// Ficheiro: views/absence_views.js (VERSÃO FINAL E CORRETA)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -12,7 +12,7 @@ async function getAbsencePanelPayload(guildId) {
             color: 0x3498DB,
             components: [
                 { type: ComponentType.TextDisplay, content: '## 🏝️ Central de Ausências' },
-                { type: ComponentType.TextDisplay, content: 'Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente.' },
+                { type: ComponentType.TextDisplay, content: 'Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração.' },
             ]
         },
     ];
@@ -24,7 +24,7 @@ async function getAbsencePanelPayload(guildId) {
                 type: ComponentType.MediaGalleryItem,
                 media: {
                     type: 0, // Image
-                    url: imageUrl // <<< A CORREÇÃO ESTÁ AQUI
+                    url: imageUrl // A propriedade correta é "url"
                 }
             }]
         });

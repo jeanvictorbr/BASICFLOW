@@ -1,4 +1,4 @@
-// Ficheiro: views/ticket_views.js (VERSÃO FINAL COM IMAGEM CORRIGIDA)
+// Ficheiro: views/ticket_views.js (VERSÃO FINAL E CORRETA)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -12,7 +12,7 @@ async function getTicketPanelPayload(guildId) {
             color: 0xE74C3C,
             components: [
                 { type: ComponentType.TextDisplay, content: '## 🎫 Central de Atendimento' },
-                { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão para a administração?\n\nClique no botão abaixo para abrir um ticket privado.' },
+                { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão?\n\nClique no botão abaixo para abrir um ticket privado.' },
             ]
         },
     ];
@@ -24,7 +24,7 @@ async function getTicketPanelPayload(guildId) {
                 type: ComponentType.MediaGalleryItem,
                 media: {
                     type: 0, // Image
-                    url: imageUrl // <<< A CORREÇÃO ESTÁ AQUI
+                    url: imageUrl // A propriedade correta é "url"
                 }
             }]
         });
@@ -43,7 +43,6 @@ async function getTicketPanelPayload(guildId) {
 
     return { flags: 1 << 15, components, content: '' };
 }
-
 // O restante do arquivo não muda
 function getTicketDashboardPayload(ticketData) {
     const { user, guild, ticketId, claimed_by } = ticketData;

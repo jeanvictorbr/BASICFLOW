@@ -1,4 +1,4 @@
-// Ficheiro: views/registration_views.js (VERSÃO FINAL CORRIGIDA)
+// Ficheiro: views/registration_views.js (VERSÃO FINAL E CORRETA)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -24,7 +24,7 @@ async function getRegistrationPanelPayload(guildId) {
                 type: ComponentType.MediaGalleryItem,
                 media: {
                     type: 0, // Image
-                    url: imageUrl // <<< A CORREÇÃO ESTÁ AQUI
+                    url: imageUrl // A propriedade correta é "url"
                 }
             }]
         });
