@@ -1,8 +1,8 @@
+// Ficheiro: views/ticket_views.js (VERSÃO FINAL COM IMAGEM CORRIGIDA)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getTicketPanelPayload(guildId) {
-    // Busca a imagem configurada no banco de dados
     const settings = await db.get('SELECT ticket_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
     const imageUrl = settings?.ticket_panel_image_url;
 
@@ -12,20 +12,25 @@ async function getTicketPanelPayload(guildId) {
             color: 0xE74C3C,
             components: [
                 { type: ComponentType.TextDisplay, content: '## 🎫 Central de Atendimento' },
-                { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão para a administração?\n\nClique no botão abaixo para abrir um ticket privado. A nossa equipa de suporte irá atendê-lo assim que possível.' },
+                { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão para a administração?\n\nClique no botão abaixo para abrir um ticket privado.' },
             ]
         },
     ];
 
-    // *** INÍCIO DA CORREÇÃO ***
-    // Adiciona a imagem à vitrine, se existir uma URL configurada
     if (imageUrl) {
         components.push({
             type: ComponentType.MediaGallery,
-            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+            // *** INÍCIO DA CORREÇÃO ***
+            items: [{
+                type: ComponentType.MediaGalleryItem,
+                media: {
+                    type: 0, // Image
+                    image_url: imageUrl
+                }
+            }]
+            // *** FIM DA CORREÇÃO ***
         });
     }
-    // *** FIM DA CORREÇÃO ***
 
     components.push({
         type: ComponentType.ActionRow,

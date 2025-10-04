@@ -1,9 +1,8 @@
-// Ficheiro: views/absence_views.js (VERSÃO FINAL COM IMAGEM)
+
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getAbsencePanelPayload(guildId) {
-    // Busca a imagem configurada no banco de dados
     const settings = await db.get('SELECT absence_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
     const imageUrl = settings?.absence_panel_image_url;
 
@@ -18,15 +17,20 @@ async function getAbsencePanelPayload(guildId) {
         },
     ];
     
-    // *** INÍCIO DA CORREÇÃO ***
-    // Adiciona a imagem à vitrine, se existir uma URL configurada
     if (imageUrl) {
         components.push({
             type: ComponentType.MediaGallery,
-            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+            // *** INÍCIO DA CORREÇÃO ***
+            items: [{
+                type: ComponentType.MediaGalleryItem,
+                media: {
+                    type: 0, // Image
+                    image_url: imageUrl
+                }
+            }]
+            // *** FIM DA CORREÇÃO ***
         });
     }
-    // *** FIM DA CORREÇÃO ***
 
     components.push({
         type: ComponentType.ActionRow,
@@ -41,6 +45,7 @@ async function getAbsencePanelPayload(guildId) {
 
     return { flags: 1 << 15, components, content: '' };
 }
+
 // O restante do arquivo (modais, embeds de aprovação) permanece o mesmo.
 // ... (código existente para getAbsenceModal, getAbsenceApprovalPayload, etc.)
 function getAbsenceModal() {

@@ -1,9 +1,8 @@
-// Ficheiro: views/registration_views.js (VERSÃO FINAL COM IMAGEM)
+// Ficheiro: views/registration_views.js (VERSÃO FINAL COM IMAGEM CORRIGIDA)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getRegistrationPanelPayload(guildId) {
-    // Busca a imagem configurada no banco de dados
     const settings = await db.get('SELECT registration_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
     const imageUrl = settings?.registration_panel_image_url;
 
@@ -18,15 +17,20 @@ async function getRegistrationPanelPayload(guildId) {
         },
     ];
 
-    // *** INÍCIO DA CORREÇÃO ***
-    // Adiciona a imagem à vitrine, se existir uma URL configurada
     if (imageUrl) {
         components.push({
             type: ComponentType.MediaGallery,
-            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+            // *** INÍCIO DA CORREÇÃO ***
+            items: [{
+                type: ComponentType.MediaGalleryItem,
+                media: {
+                    type: 0, // Image
+                    image_url: imageUrl
+                }
+            }]
+            // *** FIM DA CORREÇÃO ***
         });
     }
-    // *** FIM DA CORREÇÃO ***
 
     components.push({
         type: ComponentType.ActionRow,
