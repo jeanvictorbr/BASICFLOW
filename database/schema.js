@@ -1,10 +1,7 @@
-// Ficheiro: database/schema.js
-// Responsável por garantir que a estrutura da base de dados está correta e atualizada.
-
+// Ficheiro: database/schema.js (VERSÃO FINAL E CORRIGIDA)
 const db = require('../database/db.js');
 
 const createTablesSQL = `
-    -- Tabelas originais do bot
     CREATE TABLE IF NOT EXISTS guild_settings (
         guild_id VARCHAR(255) PRIMARY KEY,
         registration_channel_id VARCHAR(255),
@@ -12,8 +9,32 @@ const createTablesSQL = `
         registered_role_id VARCHAR(255),
         absence_role_id VARCHAR(255)
     );
-    CREATE TABLE IF NOT EXISTS registrations ( /* ... Tabela sem alterações ... */ );
-    CREATE TABLE IF NOT EXISTS absences ( /* ... Tabela sem alterações ... */ );
+
+    -- *** INÍCIO DA CORREÇÃO: Definição completa das tabelas ***
+    CREATE TABLE IF NOT EXISTS registrations (
+        registration_id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        rp_name TEXT NOT NULL,
+        game_id TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        approver_id VARCHAR(255),
+        timestamp BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)
+    );
+
+    CREATE TABLE IF NOT EXISTS absences (
+        absence_id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        start_date BIGINT NOT NULL,
+        end_date BIGINT NOT NULL,
+        reason TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        approver_id VARCHAR(255),
+        timestamp BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)
+    );
+    -- *** FIM DA CORREÇÃO ***
+
     CREATE TABLE IF NOT EXISTS tickets (
         ticket_id SERIAL PRIMARY KEY,
         guild_id VARCHAR(255) NOT NULL,
@@ -21,6 +42,7 @@ const createTablesSQL = `
         channel_id VARCHAR(255) NOT NULL,
         is_open BOOLEAN DEFAULT TRUE
     );
+
     CREATE TABLE IF NOT EXISTS changelog_updates (
         update_id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
@@ -28,12 +50,10 @@ const createTablesSQL = `
         timestamp BIGINT NOT NULL
     );
 
-    -- Tabelas para o Sistema de Uniformes (Vestiário) - VERSÃO CORRIGIDA E FINAL
     CREATE TABLE IF NOT EXISTS vestuario_configs (
         guild_id VARCHAR(255) PRIMARY KEY,
         showcase_channel_id VARCHAR(255),
         showcase_message_id VARCHAR(255)
-        -- A coluna 'storage_channel_id' será adicionada pela função de alteração abaixo para garantir a compatibilidade
     );
 
     CREATE TABLE IF NOT EXISTS vestuario_items (
@@ -47,31 +67,42 @@ const createTablesSQL = `
 `;
 
 async function checkAndAlterTables() {
-    // Colunas adicionais que seu bot já utiliza
-    const guildSettingsColumns = {
-        'nickname_tag': 'VARCHAR(16)',
-        'registration_panel_image_url': 'TEXT',
-        'ticket_category_id': 'VARCHAR(255)',
-        'support_role_id': 'VARCHAR(255)',
-        'ticket_log_channel_id': 'VARCHAR(255)',
-        'absence_panel_image_url': 'TEXT',
-        'ticket_panel_image_url': 'TEXT'
+    const columnsToAdd = {
+        'guild_settings': {
+            'nickname_tag': 'VARCHAR(16)',
+            'registration_panel_image_url': 'TEXT',
+            'ticket_category_id': 'VARCHAR(255)',
+            'support_role_id': 'VARCHAR(255)',
+            'ticket_log_channel_id': 'VARCHAR(255)',
+            'absence_panel_image_url': 'TEXT',
+            'ticket_panel_image_url': 'TEXT'
+        },
+        'tickets': {
+            'closed_by': 'VARCHAR(255)',
+            'close_reason': 'TEXT',
+            'claimed_by': 'VARCHAR(255)'
+        },
+        'vestuario_configs': {
+            'storage_channel_id': 'VARCHAR(255)'
+        },
+        // *** INÍCIO DA CORREÇÃO: Adiciona verificação para tabelas de registo e ausência ***
+        'registrations': {
+            'guild_id': 'VARCHAR(255)',
+            'rp_name': 'TEXT',
+            'game_id': 'TEXT',
+            'approver_id': 'VARCHAR(255)',
+            'timestamp': 'BIGINT'
+        },
+        'absences': {
+            'guild_id': 'VARCHAR(255)',
+            'start_date': 'BIGINT',
+            'end_date': 'BIGINT',
+            'approver_id': 'VARCHAR(255)',
+            'timestamp': 'BIGINT'
+        }
+        // *** FIM DA CORREÇÃO ***
     };
 
-    const ticketsColumns = {
-        'closed_by': 'VARCHAR(255)',
-        'close_reason': 'TEXT',
-        'claimed_by': 'VARCHAR(255)'
-    };
-
-    // *** INÍCIO DA CORREÇÃO ***
-    // Garante que a coluna para o canal de storage de uniformes exista.
-    const vestuarioConfigsColumns = {
-        'storage_channel_id': 'VARCHAR(255)'
-    };
-    // *** FIM DA CORREÇÃO ***
-
-    // Função auxiliar para adicionar colunas se não existirem
     const addColumnIfNotExists = async (tableName, columns) => {
         for (const [column, type] of Object.entries(columns)) {
             const res = await db.query(`SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`, [tableName, column]);
@@ -84,12 +115,9 @@ async function checkAndAlterTables() {
     };
 
     try {
-        await addColumnIfNotExists('guild_settings', guildSettingsColumns);
-        await addColumnIfNotExists('tickets', ticketsColumns);
-        // *** INÍCIO DA CORREÇÃO ***
-        // Adiciona a verificação para a tabela de configurações do vestuário
-        await addColumnIfNotExists('vestuario_configs', vestuarioConfigsColumns);
-        // *** FIM DA CORREÇÃO ***
+        for (const [tableName, columns] of Object.entries(columnsToAdd)) {
+            await addColumnIfNotExists(tableName, columns);
+        }
     } catch (error) {
         if (error.code !== '42P01') { // Ignora erro "tabela não existe"
             console.error(`[DATABASE] Erro ao verificar/alterar tabelas:`, error);
@@ -101,13 +129,10 @@ async function checkAndAlterTables() {
 async function initializeDatabase() {
     try {
         console.log('[DATABASE] Verificando o esquema do banco de dados...');
-        // Garante que a tabela antiga de categorias seja removida, se existir.
         await db.query('DROP TABLE IF EXISTS vestuario_categorias CASCADE;').catch(() => {});
 
-        // Cria todas as tabelas com a estrutura correta e final.
         await db.query(createTablesSQL);
-        // VERIFICA E ALTERA TODAS AS TABELAS, INCLUINDO A NOVA CORREÇÃO
-        await checkAndAlterTables();
+        await checkAndAlterTables(); // Esta função agora corrige todas as tabelas.
         console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
     } catch (error) {
         console.error('[DATABASE] Erro crítico ao inicializar o banco de dados:', error);

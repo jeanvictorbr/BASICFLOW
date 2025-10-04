@@ -1,12 +1,12 @@
-// Ficheiro: views/changelog_view.js (VERSÃO COM LAYOUT COMPONENTS V2)
+// Ficheiro: views/changelog_view.js (VERSÃO FINAL E CORRIGIDA)
 const { ComponentType, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
 
-const UPDATES_PER_PAGE = 3; // Reduzido para melhor visualização
+const UPDATES_PER_PAGE = 3;
 
 const PROMOTION_DATA = {
     title: "💎 Conheça as Nossas Versões Completas!",
-    description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas e repletas de funcionalidades.\n\n➡️ **[Police Flow (Para Servidores Policiais)](https://flow-bots.com/policeflow)**\n➡️ **[Faction Flow (Para Facções e Organizações)](https://flow-bots.com/factionflow)**"
+    description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas.\n\n➡️ **[Police Flow](https://flow-bots.com/policeflow)**\n➡️ **[Faction Flow](https://flow-bots.com/factionflow)**"
 };
 
 async function getChangelogPayload(page = 1) {
@@ -28,7 +28,6 @@ async function getChangelogPayload(page = 1) {
             components.push({ type: ComponentType.TextDisplay, content: '*Ainda não há nenhuma atualização para mostrar.*' });
         } else {
             for (const update of updates) {
-                const updateDate = new Date(Number(update.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
                 components.push({ type: ComponentType.Separator });
                 components.push({
                     type: ComponentType.Section,
@@ -36,11 +35,13 @@ async function getChangelogPayload(page = 1) {
                         { type: ComponentType.TextDisplay, content: `### ${update.title}` },
                         { type: ComponentType.TextDisplay, content: update.description }
                     ],
+                    // *** INÍCIO DA CORREÇÃO ***
                     accessory: {
                         type: ComponentType.Thumbnail,
-                        image_url: "https://i.imgur.com/YuK1aVN.gif",
+                        image_url: "https://i.imgur.com/YuK1aVN.gif", // A sintaxe correta não usa "media" aqui.
                         size: 'lg'
                     }
+                    // *** FIM DA CORREÇÃO ***
                 });
             }
         }
