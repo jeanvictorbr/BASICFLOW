@@ -1,9 +1,9 @@
-// Ficheiro: views/config_views.js (VERSÃO FINAL COM LAYOUT COMPONENTS V2)
-const { ButtonStyle, ComponentType } = require('discord.js');
+// Ficheiro: views/config_views.js (VERSÃO FINAL OTIMIZADA)
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
-// Helper para formatar o texto da configuração
-const formatSettingText = (settings, key, type) => {
+// Helper para formatar o status da configuração para o texto principal
+const formatSetting = (settings, key, type) => {
     const id = settings?.[key];
     if (id) {
         return `✅ ${type === 'role' ? `<@&${id}>` : `<#${id}>`}`;
@@ -11,116 +11,93 @@ const formatSettingText = (settings, key, type) => {
     return '❌ `Não definido`';
 };
 
-const formatTagSettingText = (settings, key) => {
+const formatTagSetting = (settings, key) => {
     const tag = settings?.[key];
     if (tag) { return `✅ \`[${tag}]\``; }
     return '❌ `Não definida`';
 }
 
-const formatImageSettingText = (settings, key) => {
+const formatImageSetting = (settings, key) => {
     const url = settings?.[key];
     if (url) { return `✅ [Ver Imagem](${url})`; }
     return '❌ `Padrão`';
 }
 
-// Função que cria uma Seção de configuração (Texto + Botão)
-function createSettingSection(label, status, buttonId, style) {
-    return {
-        type: ComponentType.Section,
-        components: [{
-            type: ComponentType.TextDisplay,
-            content: `**${label}:** ${status}`,
-        }],
-        accessory: {
-            type: ComponentType.Button,
-            style: style,
-            label: 'Alterar',
-            custom_id: buttonId,
-        },
-    };
-}
-
 async function getConfigDashboardPayload(guild, userId) {
     const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
 
-    const components = [
-        {
-            type: ComponentType.TextDisplay,
-            content: '# ⚙️ Painel de Configuração do BasicFlow\nUtilize os botões para configurar as funcionalidades do bot.',
-        },
-        { type: ComponentType.Separator },
+    // Construir o texto principal usando Markdown
+    const description = `
+# ⚙️ Painel de Configuração do BasicFlow
+Utilize os botões abaixo para configurar as funcionalidades do bot.
 
-        // --- Container de REGISTO ---
-        {
-            type: ComponentType.Container,
-            color: 0x5865F2, // Azul Discord
-            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
-            components: [
-                { type: ComponentType.TextDisplay, content: '### 📝 Configurações de Registo' },
-                createSettingSection('Canal de Logs', formatSettingText(settings, 'registration_channel_id', 'channel'), 'config_set_registration_channel', ButtonStyle.Primary),
-                createSettingSection('Cargo de Membro', formatSettingText(settings, 'registered_role_id', 'role'), 'config_set_registered_role', ButtonStyle.Primary),
-                createSettingSection('TAG de Nickname', formatTagSettingText(settings, 'nickname_tag'), 'config_set_nickname_tag', ButtonStyle.Primary),
-                createSettingSection('Imagem do Painel', formatImageSettingText(settings, 'registration_panel_image_url'), 'config_set_panel_image', ButtonStyle.Primary),
-            ],
-        },
+---
 
-        // --- Container de AUSÊNCIA ---
-        {
-            type: ComponentType.Container,
-            color: 0x3498DB, // Azul Claro
-            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
-            components: [
-                { type: ComponentType.TextDisplay, content: '### 🏝️ Configurações de Ausência' },
-                createSettingSection('Canal de Logs', formatSettingText(settings, 'absence_channel_id', 'channel'), 'config_set_absence_channel', ButtonStyle.Primary),
-                createSettingSection('Cargo de Ausente', formatSettingText(settings, 'absence_role_id', 'role'), 'config_set_absence_role', ButtonStyle.Primary),
-                createSettingSection('Imagem do Painel', formatImageSettingText(settings, 'absence_panel_image_url'), 'config_set_absence_image', ButtonStyle.Primary),
-            ],
-        },
-        
-        // --- Container de TICKET ---
-        {
-            type: ComponentType.Container,
-            color: 0xE74C3C, // Vermelho
-            // *** CORREÇÃO: A propriedade correta é 'components', não 'children' ***
-            components: [
-                { type: ComponentType.TextDisplay, content: '### 🎫 Configurações de Ticket' },
-                createSettingSection('Categoria', formatSettingText(settings, 'ticket_category_id', 'channel'), 'config_set_ticket_category', ButtonStyle.Primary),
-                createSettingSection('Cargo de Suporte', formatSettingText(settings, 'support_role_id', 'role'), 'config_set_support_role', ButtonStyle.Primary),
-                createSettingSection('Canal de Logs', formatSettingText(settings, 'ticket_log_channel_id', 'channel'), 'config_set_ticket_log_channel', ButtonStyle.Primary),
-                createSettingSection('Imagem do Painel', formatImageSettingText(settings, 'ticket_panel_image_url'), 'config_set_ticket_image', ButtonStyle.Primary),
-            ],
-        },
-        { type: ComponentType.Separator },
+### 📝 Registos
+- **Canal de Logs:** ${formatSetting(settings, 'registration_channel_id', 'channel')}
+- **Cargo de Membro:** ${formatSetting(settings, 'registered_role_id', 'role')}
+- **TAG de Nickname:** ${formatTagSetting(settings, 'nickname_tag')}
+- **Imagem do Painel:** ${formatImageSetting(settings, 'registration_panel_image_url')}
 
-        // Botões de Ação
-        {
-            type: ComponentType.ActionRow,
-            components: [
-                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Registo', custom_id: 'config_publish_registration_panel' },
-                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Ausência', custom_id: 'config_publish_absence_panel' },
-                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Ticket', custom_id: 'config_publish_ticket_panel' },
-            ]
-        },
-        {
-            type: ComponentType.ActionRow,
-            components: [
-                { type: ComponentType.Button, style: ButtonStyle.Secondary, label: 'Ver Atualizações', custom_id: 'config_view_changelog' },
-            ]
-        },
-    ];
+### 🏝️ Ausências
+- **Canal de Logs:** ${formatSetting(settings, 'absence_channel_id', 'channel')}
+- **Cargo de Ausente:** ${formatSetting(settings, 'absence_role_id', 'role')}
+- **Imagem do Painel:** ${formatImageSetting(settings, 'absence_panel_image_url')}
+
+### 🎫 Tickets
+- **Categoria:** ${formatSetting(settings, 'ticket_category_id', 'channel')}
+- **Cargo de Suporte:** ${formatSetting(settings, 'support_role_id', 'role')}
+- **Canal de Logs:** ${formatSetting(settings, 'ticket_log_channel_id', 'channel')}
+- **Imagem do Painel:** ${formatImageSetting(settings, 'ticket_panel_image_url')}
+`;
+
+    // Botões organizados em linhas
+    const row1 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_set_registration_channel').setLabel('Registo-Canal').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('config_set_registered_role').setLabel('Registo-Cargo').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('config_set_nickname_tag').setLabel('Registo-TAG').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('config_set_panel_image').setLabel('Registo-Imagem').setStyle(ButtonStyle.Primary),
+    );
     
+    const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_set_absence_channel').setLabel('Ausência-Canal').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_absence_role').setLabel('Ausência-Cargo').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('config_set_absence_image').setLabel('Ausência-Imagem').setStyle(ButtonStyle.Secondary),
+    );
+
+    const row3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_set_ticket_category').setLabel('Ticket-Categoria').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('config_set_support_role').setLabel('Ticket-Cargo Suporte').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('config_set_ticket_log_channel').setLabel('Ticket-Canal Logs').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('config_set_ticket_image').setLabel('Ticket-Imagem').setStyle(ButtonStyle.Danger),
+    );
+
+    const row4 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_publish_registration_panel').setLabel('Publicar Registo').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('config_publish_absence_panel').setLabel('Publicar Ausência').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('config_publish_ticket_panel').setLabel('Publicar Ticket').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('config_view_changelog').setLabel('Ver Atualizações').setStyle(ButtonStyle.Secondary),
+    );
+
+    const components = [row1, row2, row3, row4];
+
     if (userId === process.env.OWNER_ID) {
-        components.push({
-            type: ComponentType.ActionRow,
-            components: [
-                { type: ComponentType.Button, style: ButtonStyle.Danger, label: 'Painel do Dono', emoji: { name: '🔒' }, custom_id: 'dev_panel' }
-            ]
-        });
+        components.push(
+            new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('dev_panel').setEmoji('🔒').setLabel('Painel do Dono').setStyle(ButtonStyle.Secondary)
+            )
+        );
     }
     
     return {
         flags: 1 << 15, // MessageFlags.IsComponentsV2
-        components,
+        components: [
+            {
+                type: ComponentType.TextDisplay,
+                content: description,
+            },
+            ...components
+        ],
         embeds: [],
         content: '',
     };
