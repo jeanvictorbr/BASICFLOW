@@ -1,8 +1,11 @@
-// Ficheiro: views/ticket_views.js (VERSÃO COM LAYOUT COMPONENTS V2)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getTicketPanelPayload(guildId) {
+    // Busca a imagem configurada no banco de dados
+    const settings = await db.get('SELECT ticket_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
+    const imageUrl = settings?.ticket_panel_image_url;
+
     const components = [
         {
             type: ComponentType.Container,
@@ -12,17 +15,29 @@ async function getTicketPanelPayload(guildId) {
                 { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão para a administração?\n\nClique no botão abaixo para abrir um ticket privado. A nossa equipa de suporte irá atendê-lo assim que possível.' },
             ]
         },
-        {
-            type: ComponentType.ActionRow,
-            components: [{
-                type: ComponentType.Button,
-                style: ButtonStyle.Danger,
-                label: 'Abrir Ticket',
-                emoji: { name: '📩' },
-                custom_id: 'open_ticket',
-            }]
-        }
     ];
+
+    // *** INÍCIO DA CORREÇÃO ***
+    // Adiciona a imagem à vitrine, se existir uma URL configurada
+    if (imageUrl) {
+        components.push({
+            type: ComponentType.MediaGallery,
+            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+        });
+    }
+    // *** FIM DA CORREÇÃO ***
+
+    components.push({
+        type: ComponentType.ActionRow,
+        components: [{
+            type: ComponentType.Button,
+            style: ButtonStyle.Danger,
+            label: 'Abrir Ticket',
+            emoji: { name: '📩' },
+            custom_id: 'open_ticket',
+        }]
+    });
+
     return { flags: 1 << 15, components, content: '' };
 }
 // O restante do arquivo (dashboard do ticket) permanece o mesmo.

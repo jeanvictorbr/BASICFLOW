@@ -1,32 +1,47 @@
-// Ficheiro: views/registration_views.js (VERSÃO COM LAYOUT COMPONENTS V2)
+// Ficheiro: views/registration_views.js (VERSÃO FINAL COM IMAGEM)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getRegistrationPanelPayload(guildId) {
+    // Busca a imagem configurada no banco de dados
+    const settings = await db.get('SELECT registration_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
+    const imageUrl = settings?.registration_panel_image_url;
+
     const components = [
         {
             type: ComponentType.Container,
             color: 0x0099FF,
             components: [
                 { type: ComponentType.TextDisplay, content: '## 📝 Central de Registo' },
-                { type: ComponentType.TextDisplay, content: 'Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo. Você precisará fornecer algumas informações básicas.' },
+                { type: ComponentType.TextDisplay, content: 'Bem-vindo(a) à nossa comunidade!\n\nPara ter acesso completo ao servidor, por favor, inicie o seu registo clicando no botão abaixo.' },
             ]
         },
-        {
-            type: ComponentType.ActionRow,
-            components: [{
-                type: ComponentType.Button,
-                style: ButtonStyle.Primary,
-                label: 'Iniciar Registo',
-                emoji: { name: '📄' },
-                custom_id: 'initiate_registration',
-            }]
-        }
     ];
+
+    // *** INÍCIO DA CORREÇÃO ***
+    // Adiciona a imagem à vitrine, se existir uma URL configurada
+    if (imageUrl) {
+        components.push({
+            type: ComponentType.MediaGallery,
+            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+        });
+    }
+    // *** FIM DA CORREÇÃO ***
+
+    components.push({
+        type: ComponentType.ActionRow,
+        components: [{
+            type: ComponentType.Button,
+            style: ButtonStyle.Primary,
+            label: 'Iniciar Registo',
+            emoji: { name: '📄' },
+            custom_id: 'initiate_registration',
+        }]
+    });
+
     return { flags: 1 << 15, components, content: '' };
 }
-// O restante do arquivo (modais, embeds de aprovação) permanece o mesmo.
-// ... (código existente para getRegistrationModal, getRegistrationApprovalPayload, etc.)
+
 function getRegistrationModal() {
     return new ModalBuilder()
         .setCustomId('registration_modal_submit')

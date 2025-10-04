@@ -1,28 +1,44 @@
-// Ficheiro: views/absence_views.js (VERSÃO COM LAYOUT COMPONENTS V2)
+// Ficheiro: views/absence_views.js (VERSÃO FINAL COM IMAGEM)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 async function getAbsencePanelPayload(guildId) {
+    // Busca a imagem configurada no banco de dados
+    const settings = await db.get('SELECT absence_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
+    const imageUrl = settings?.absence_panel_image_url;
+
     const components = [
         {
             type: ComponentType.Container,
             color: 0x3498DB,
             components: [
                 { type: ComponentType.TextDisplay, content: '## 🏝️ Central de Ausências' },
-                { type: ComponentType.TextDisplay, content: 'Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente para evitar ser removido por inatividade.' },
+                { type: ComponentType.TextDisplay, content: 'Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente.' },
             ]
         },
-        {
-            type: ComponentType.ActionRow,
-            components: [{
-                type: ComponentType.Button,
-                style: ButtonStyle.Primary,
-                label: 'Informar Ausência',
-                emoji: { name: '🗓️' },
-                custom_id: 'initiate_absence',
-            }]
-        }
     ];
+    
+    // *** INÍCIO DA CORREÇÃO ***
+    // Adiciona a imagem à vitrine, se existir uma URL configurada
+    if (imageUrl) {
+        components.push({
+            type: ComponentType.MediaGallery,
+            items: [{ type: ComponentType.MediaGalleryItem, image_url: imageUrl }]
+        });
+    }
+    // *** FIM DA CORREÇÃO ***
+
+    components.push({
+        type: ComponentType.ActionRow,
+        components: [{
+            type: ComponentType.Button,
+            style: ButtonStyle.Primary,
+            label: 'Informar Ausência',
+            emoji: { name: '🗓️' },
+            custom_id: 'initiate_absence',
+        }]
+    });
+
     return { flags: 1 << 15, components, content: '' };
 }
 // O restante do arquivo (modais, embeds de aprovação) permanece o mesmo.
