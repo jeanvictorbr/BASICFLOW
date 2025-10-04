@@ -28,7 +28,7 @@ const createTablesSQL = `
         timestamp BIGINT NOT NULL
     );
 
-    -- TABELAS DO VESTIÁRIO (VERSÃO FINAL SEM CATEGORIAS)
+    -- TABELAS DO VESTIÁRIO (SIMPLIFICADAS SEM CATEGORIAS)
     CREATE TABLE IF NOT EXISTS vestuario_configs (
         guild_id VARCHAR(255) PRIMARY KEY,
         showcase_channel_id VARCHAR(255),
@@ -86,10 +86,13 @@ async function checkAndAlterTables() {
 async function initializeDatabase() {
     try {
         console.log('[DATABASE] Verificando o esquema do banco de dados...');
+        // Remove tabelas antigas, se existirem, para forçar a recriação. Ignora erros se não existirem.
+        await db.query('DROP TABLE IF EXISTS vestuario_categorias CASCADE;').catch(() => {});
+        
+        // Executa a criação de todas as tabelas com a nova estrutura
         await db.query(createTablesSQL);
-        // Tenta remover a tabela antiga de categorias, se existir. Ignora o erro se ela não existir.
-        await db.query('DROP TABLE IF EXISTS vestuario_categorias;').catch(() => {});
         await checkAndAlterTables();
+        
         console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
     } catch (error) {
         console.error('[DATABASE] Erro crítico ao inicializar o banco de dados:', error);
