@@ -81,6 +81,7 @@ async function handleStringSelect(interaction) {
         const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
 
         if (itemRes.rowCount === 0) {
+            // Edita a mensagem principal para informar que o item sumiu
             return interaction.update({ 
                 content: 'Ops! Este uniforme não existe mais.', 
                 embeds: [], 
@@ -90,15 +91,15 @@ async function handleStringSelect(interaction) {
 
         const item = itemRes.rows[0];
 
-        // --- CORREÇÃO AQUI ---
+        // --- CORREÇÃO FINAL AQUI ---
         // Cria o novo embed com o Título, a IMAGEM e o CAMPO de códigos
         const updatedEmbed = new EmbedBuilder()
             .setColor('#3498db')
             .setTitle(item.nome)
-            .setImage(item.imagem_url) // <-- A IMAGEM ESTÁ AQUI
+            .setImage(item.imagem_url) // <-- A IMAGEM
             .addFields({
                 name: 'Códigos (Preset)',
-                value: '```\n' + item.codigos + '\n```'
+                value: '```\n' + item.codigos + '\n```' // <-- O BLOCO DE CÓDIGO
             })
             .setFooter({ text: 'Copie os códigos acima para usar em jogo.' });
         
