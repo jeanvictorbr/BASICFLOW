@@ -1,5 +1,5 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
-const db = require('../database/db'); // Alterado de 'pool' para 'db' para corresponder ao seu padrão
+const db = require('../database/db');
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
 
 async function handleButton(interaction) {
@@ -11,16 +11,16 @@ async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Você precisa criar pelo menos uma categoria antes de adicionar um uniforme.', ephemeral: true });
         }
 
+        // --- ALTERADO AQUI ---
+        // O campo de URL da imagem foi removido do modal
         const modal = new ModalBuilder().setCustomId('uniformes_add_item_modal').setTitle('Adicionar Novo Uniforme');
         const nameInput = new TextInputBuilder().setCustomId('item_name').setLabel('Nome do Uniforme').setStyle(TextInputStyle.Short).setRequired(true);
         const categoryInput = new TextInputBuilder().setCustomId('item_category').setLabel('Categoria (Nome Exato)').setStyle(TextInputStyle.Short).setRequired(true);
-        const imageInput = new TextInputBuilder().setCustomId('item_image').setLabel('URL da Imagem').setStyle(TextInputStyle.Short).setRequired(true);
         const codesInput = new TextInputBuilder().setCustomId('item_codes').setLabel('Códigos do Uniforme').setStyle(TextInputStyle.Paragraph).setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(nameInput),
             new ActionRowBuilder().addComponents(categoryInput),
-            new ActionRowBuilder().addComponents(imageInput),
             new ActionRowBuilder().addComponents(codesInput)
         );
         await interaction.showModal(modal);
@@ -73,8 +73,6 @@ async function handleModal(interaction) {
         const newCategoriesText = interaction.fields.getTextInputValue('categories_input');
         const newCategories = newCategoriesText.split('\n').map(name => name.trim()).filter(name => name);
         
-        // --- BLOCO CORRIGIDO ---
-        // Removido o uso de pool.connect() e substituído por chamadas diretas a db.query
         try {
             await db.query('DELETE FROM vestuario_categorias WHERE guild_id = $1', [guildId]);
             for (const name of newCategories) {
@@ -87,35 +85,60 @@ async function handleModal(interaction) {
             await interaction.followUp({ content: 'Ocorreu um erro ao salvar as categorias no banco de dados.', ephemeral: true });
             return;
         }
-        // --- FIM DO BLOCO CORRIGIDO ---
 
         await updateShowcase(interaction);
         await showConfigPanel(interaction);
     }
 
     if (interaction.customId === 'uniformes_add_item_modal') {
+        // --- LÓGICA COMPLETAMENTE NOVA AQUI ---
         await interaction.deferUpdate();
+        
         const name = interaction.fields.getTextInputValue('item_name');
         const categoryName = interaction.fields.getTextInputValue('item_category');
-        const imageUrl = interaction.fields.getTextInputValue('item_image');
         const codes = interaction.fields.getTextInputValue('item_codes');
 
+        // Valida se a categoria existe
         const categoryRes = await db.query('SELECT nome FROM vestuario_categorias WHERE guild_id = $1 AND nome = $2', [guildId, categoryName]);
         if (categoryRes.rowCount === 0) {
-            await interaction.followUp({ content: `❌ A categoria "${categoryName}" não existe. Verifique o nome exato (maiúsculas/minúsculas) e tente novamente.`, ephemeral: true });
+            await interaction.followUp({ content: `❌ A categoria "${categoryName}" não existe. Verifique o nome exato e tente novamente.`, ephemeral: true });
             return;
         }
+
+        // Pede a imagem ao usuário
+        await interaction.followUp({ content: `✅ Dados do texto salvos! Agora, por favor, envie a **imagem** para o uniforme **"${name}"** neste canal.\n\n*Você tem 3 minutos.*`, ephemeral: true });
+
+        // Cria um "coletor" para esperar a próxima mensagem do usuário
+        const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
         
-        await db.query(
-            'INSERT INTO vestuario_items (guild_id, categoria_nome, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4, $5)',
-            [guildId, categoryName, name, imageUrl, codes]
-        );
-        
-        await updateShowcase(interaction);
-        await showConfigPanel(interaction);
+        try {
+            const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 180000, errors: ['time'] });
+            const messageWithImage = collected.first();
+            const imageUrl = messageWithImage.attachments.first().url;
+
+            // Apaga a mensagem do usuário que continha a imagem
+            await messageWithImage.delete();
+
+            // Insere tudo no banco de dados
+            await db.query(
+                'INSERT INTO vestuario_items (guild_id, categoria_nome, nome, imagem_url, codigos) VALUES ($1, $2, $3, $4, $5)',
+                [guildId, categoryName, name, imageUrl, codes]
+            );
+
+            // Responde com sucesso e atualiza tudo
+            await interaction.followUp({ content: `✅ Uniforme **"${name}"** adicionado com sucesso!`, ephemeral: true });
+            await updateShowcase(interaction);
+            await showConfigPanel(interaction);
+
+        } catch (error) {
+            // Se o tempo esgotar, o erro 'time' é capturado aqui
+            console.error('Erro ao coletar imagem do uniforme:', error);
+            await interaction.followUp({ content: '⏰ Tempo esgotado. A operação foi cancelada. Por favor, tente adicionar o uniforme novamente.', ephemeral: true });
+        }
     }
 }
 
+// O resto do arquivo (handleStringSelect, handleChannelSelect, e exports) continua o mesmo
 async function handleStringSelect(interaction) {
     if (interaction.customId === 'uniformes_showcase_category_select') {
         await interaction.deferReply({ ephemeral: true });
