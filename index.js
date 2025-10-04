@@ -1,122 +1,133 @@
 // Ficheiro: index.js
-// Ponto de entrada principal do bot (VERSÃO COM REGISTO INSTANTÂNEO DE COMANDOS).
+// Ponto de entrada principal do bot. Responsável por iniciar o cliente, carregar comandos e lidar com eventos.
 
-const { Client, GatewayIntentBits, Collection, Events, REST, Routes } = require('discord.js');
+// Carrega as variáveis de ambiente (.env)
+require('dotenv-flow').config();
+
+// Módulos essenciais do Node.js
 const fs = require('node:fs');
 const path = require('node:path');
-require('dotenv-flow').config();
-const absenceChecker = require('./tasks/absence_checker.js');
 
-process.on('unhandledRejection', error => console.error('ERRO GLOBAL NÃO TRATADO:', error));
-process.on('uncaughtException', error => console.error('EXCEÇÃO GLOBAL NÃO TRATADA:', error));
+// Classes do discord.js
+const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 
+// Módulos internos do projeto
 const { initializeDatabase } = require('./database/schema.js');
-const masterHandler = require('./interactions/handler.js');
+const interactionHandler = require('./interactions/handler.js');
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-
-if (!DISCORD_TOKEN || !CLIENT_ID) {
-    console.error("[ERRO CRÍTICO] Variáveis DISCORD_TOKEN ou CLIENT_ID em falta no ficheiro .env.");
+// Verifica se o token do bot foi fornecido
+if (!process.env.BOT_TOKEN) {
+    console.error('[ERRO FATAL] O BOT_TOKEN não foi encontrado nas variáveis de ambiente. Verifique o seu ficheiro .env');
     process.exit(1);
 }
 
+// Cria uma nova instância do cliente Discord com as intenções (intents) necessárias
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
     ],
 });
 
+// Coleção para armazenar os comandos de barra (slash commands)
 client.commands = new Collection();
 
-// FUNÇÃO ATUALIZADA PARA CARREGAR COMANDOS CORRETAMENTE
-function loadCommands(dir) {
-    console.log(`[INFO] A carregar comandos de: ${dir}`);
-    if (!fs.existsSync(dir)) return;
-    // Carrega apenas ficheiros .js na raiz da pasta 'commands', ignorando subpastas como 'handlers'
-    const commandFiles = fs.readdirSync(dir).filter(file => file.endsWith('.js'));
-    for (const file of commandFiles) {
-        try {
-            const command = require(path.join(dir, file));
-            if (command.data) {
-                client.commands.set(command.data.name, command);
-                console.log(`[INFO] Comando Carregado: ${file}`);
-            }
-        } catch (error) {
-            console.error(`[COMMAND_LOAD_ERROR] Falha ao carregar ${file}:`, error);
-        }
-    }
-}
+// Carregamento dinâmico dos ficheiros de comando
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-// NOVA FUNÇÃO ROBUSTA PARA REGISTAR COMANDOS
-async function registerCommands(guildId = null) {
-    const commandsToDeploy = client.commands.map(command => command.data.toJSON());
-    if (commandsToDeploy.length === 0) {
-        console.log('[AVISO] Nenhum comando encontrado para registar.');
-        return;
-    }
-
-    const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
-
+for (const file of commandFiles) {
     try {
-        if (guildId) {
-            // Registo específico para um servidor (instantâneo)
-            console.log(`[INFO] A registar comandos para o servidor: ${guildId}`);
-            await rest.put(
-                Routes.applicationGuildCommands(CLIENT_ID, guildId),
-                { body: commandsToDeploy }
-            );
-            console.log(`[INFO] Comandos registados com sucesso para o servidor: ${guildId}`);
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+        // Verifica se o comando tem 'data' e 'execute'
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+            console.log(`[INFO] Comando Carregado: ${file}`);
         } else {
-            // Registo global (pode demorar até 1 hora)
-            console.log('[INFO] A registar comandos globalmente...');
-            await rest.put(
-                Routes.applicationCommands(CLIENT_ID),
-                { body: commandsToDeploy }
-            );
-            console.log(`[INFO] Comandos globais registados com sucesso.`);
+            console.warn(`[AVISO] O comando em ${filePath} não possui uma propriedade "data" ou "execute".`);
         }
     } catch (error) {
-        console.error('[ERRO] Falha ao registar comandos:', error);
+        console.error(`[ERRO] Falha ao carregar o comando ${file}:`, error);
     }
 }
 
-// NOVO EVENTO: GUILDCREATE
-// Isto é executado sempre que o bot é adicionado a um novo servidor.
-client.on(Events.GuildCreate, async (guild) => {
-    console.log(`[EVENTO] O bot foi adicionado ao servidor: ${guild.name} (ID: ${guild.id})`);
-    await registerCommands(guild.id); // Regista os comandos instantaneamente para o novo servidor.
+// Evento que é executado uma vez quando o bot está pronto e online
+client.once(Events.ClientReady, async () => {
+    console.log(`[INFO] O bot ${client.user.tag} está online!`);
+
+    try {
+        // Inicializa a base de dados e carrega os handlers de interação
+        await initializeDatabase();
+        interactionHandler.loadHandlers();
+    } catch (error) {
+        console.error('[ERRO] Falha na inicialização da base de dados ou handlers:', error);
+        return process.exit(1);
+    }
+
+    // --- NOVO SISTEMA DE DEPLOYMENT DE COMANDOS ---
+    try {
+        const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
+        const commandsToDeploy = client.commands.map(cmd => cmd.data.toJSON());
+
+        const devGuildId = process.env.DEV_GUILD_ID;
+        const clientId = process.env.BOT_CLIENT_ID;
+
+        if (!clientId) {
+            console.error('[ERRO DE DEPLOY] A variável de ambiente BOT_CLIENT_ID é obrigatória no seu .env!');
+            return;
+        }
+
+        if (devGuildId) {
+            // MODO DE DESENVOLVIMENTO: Registra os comandos instantaneamente apenas no servidor de teste.
+            console.log(`[INFO] Modo de desenvolvimento ativado. Registrando comandos para o servidor: ${devGuildId}`);
+            await rest.put(
+                Routes.applicationGuildCommands(clientId, devGuildId),
+                { body: commandsToDeploy },
+            );
+            console.log(`[INFO] ${commandsToDeploy.length} comandos de aplicação (/) recarregados com sucesso no servidor de teste.`);
+        } else {
+            // MODO DE PRODUÇÃO: Registra os comandos globalmente para todos os servidores.
+            console.log('[INFO] Modo de produção. Iniciando a atualização global dos comandos de aplicação (/).');
+            await rest.put(
+                Routes.applicationCommands(clientId),
+                { body: commandsToDeploy },
+            );
+            console.log(`[INFO] ${commandsToDeploy.length} comandos de aplicação (/) recarregados globalmente com sucesso.`);
+        }
+
+    } catch (error) {
+        console.error('[ERRO DE DEPLOY] Falha ao recarregar os comandos de aplicação (/):', error);
+    }
 });
 
-client.on(Events.InteractionCreate, async (interaction) => {
+// Evento que lida com todas as interações recebidas (comandos, botões, etc.)
+client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isChatInputCommand()) {
-        const command = client.commands.get(interaction.commandName);
-        if (!command) return;
+        const command = interaction.client.commands.get(interaction.commandName);
+
+        if (!command) {
+            console.error(`Nenhum comando correspondente a ${interaction.commandName} foi encontrado.`);
+            return;
+        }
+
         try {
             await command.execute(interaction);
         } catch (error) {
-            console.error(`[ERRO] Erro ao executar o comando "/${interaction.commandName}":`, error);
+            console.error(error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+            }
         }
     } else {
-        await masterHandler.execute(interaction);
+        // Se não for um comando de barra, delega para o handler de interações robusto
+        await interactionHandler.execute(interaction);
     }
 });
 
-client.once(Events.ClientReady, readyClient => {
-    console.log(`\n---\nLogado como ${readyClient.user.tag}`);
-    console.log(`BasicFlow está online e pronto para servir em ${readyClient.guilds.cache.size} servidores.`);
-    console.log('---\n');
-});
-
-async function startBot() {
-    await initializeDatabase();
-    loadCommands(path.join(__dirname, 'commands'));
-    masterHandler.loadHandlers();
-    // Apenas regista globalmente na inicialização. O evento GuildCreate trata dos novos servidores.
-    await registerCommands(); 
-    absenceChecker.initialize(client);
-    client.login(DISCORD_TOKEN);
-}
-
-startBot();
+// Login do bot no Discord usando o token
+client.login(process.env.BOT_TOKEN);
