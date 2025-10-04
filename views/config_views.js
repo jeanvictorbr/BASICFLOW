@@ -1,5 +1,5 @@
-// Ficheiro: views/config_views.js (VERSÃO COM LAYOUT COMPONENTS V2)
-const { ButtonBuilder, ButtonStyle, ComponentType, ActionRowBuilder } = require('discord.js');
+// Ficheiro: views/config_views.js (VERSÃO FINAL COM LAYOUT COMPONENTS V2)
+const { ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
 // Helper para formatar o texto da configuração
@@ -47,7 +47,7 @@ async function getConfigDashboardPayload(guild, userId) {
         // Título Principal
         {
             type: ComponentType.TextDisplay,
-            content: '# ⚙️ Painel de Configuração do BasicFlow\nUtilize os botões abaixo para configurar as funcionalidades do bot.',
+            content: '# ⚙️ Painel de Configuração do BasicFlow\nUtilize os botões para configurar as funcionalidades do bot.',
         },
         { type: ComponentType.Separator },
 
@@ -90,33 +90,40 @@ async function getConfigDashboardPayload(guild, userId) {
         },
         { type: ComponentType.Separator },
 
-        // --- Botões de Ação (Publicar e Changelog) ---
-        // ActionRow ainda é usado para agrupar botões horizontalmente
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('config_publish_registration_panel').setLabel('Publicar Registo').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('config_publish_absence_panel').setLabel('Publicar Ausência').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('config_publish_ticket_panel').setLabel('Publicar Ticket').setStyle(ButtonStyle.Success),
-        ),
-         new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('config_view_changelog').setLabel('Ver Atualizações').setStyle(ButtonStyle.Secondary),
-        ),
+        // *** INÍCIO DA CORREÇÃO ***
+        // Botões de Ação, agora construídos como objetos JSON puros, dentro de um componente ActionRow.
+        {
+            type: ComponentType.ActionRow,
+            components: [
+                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Registo', custom_id: 'config_publish_registration_panel' },
+                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Ausência', custom_id: 'config_publish_absence_panel' },
+                { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Ticket', custom_id: 'config_publish_ticket_panel' },
+            ]
+        },
+        {
+            type: ComponentType.ActionRow,
+            components: [
+                { type: ComponentType.Button, style: ButtonStyle.Secondary, label: 'Ver Atualizações', custom_id: 'config_view_changelog' },
+            ]
+        },
+        // *** FIM DA CORREGEÇÃO ***
     ];
     
     // Adiciona o botão de desenvolvedor secreto, se for o dono
     if (userId === process.env.OWNER_ID) {
-        components.push(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('dev_panel').setEmoji('🔒').setLabel('Painel do Dono').setStyle(ButtonStyle.Danger)
-            )
-        );
+        components.push({
+            type: ComponentType.ActionRow,
+            components: [
+                { type: ComponentType.Button, style: ButtonStyle.Danger, label: 'Painel do Dono', emoji: { name: '🔒' }, custom_id: 'dev_panel' }
+            ]
+        });
     }
     
-    // O payload final precisa da flag para ativar a V2
     return {
         flags: 1 << 15, // MessageFlags.IsComponentsV2
         components,
-        embeds: [], // Importante zerar os embeds antigos
-        content: '',  // Importante zerar o content antigo
+        embeds: [],
+        content: '',
     };
 }
 
