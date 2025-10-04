@@ -2,6 +2,9 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const db = require('../database/db');
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
 
+// As outras funções (handleButton, handleModal, etc.) não precisam de alteração
+// Apenas a handleStringSelect foi modificada para depuração.
+
 async function handleButton(interaction) {
     const customId = interaction.customId;
 
@@ -77,34 +80,48 @@ async function handleModal(interaction) {
 
 async function handleStringSelect(interaction) {
     if (interaction.customId === 'uniformes_showcase_select') {
-        const itemId = interaction.values[0].replace('uniformes_item_', '');
-        const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
+        try {
+            console.log('--- [DEBUG] Iniciando exibição de uniforme ---');
+            const itemId = interaction.values[0].replace('uniformes_item_', '');
+            console.log(`[DEBUG] ID do item selecionado: ${itemId}`);
 
-        if (itemRes.rowCount === 0) {
-            // Edita a mensagem principal para informar que o item sumiu
-            return interaction.update({ 
-                content: 'Ops! Este uniforme não existe mais.', 
-                embeds: [], 
-                components: interaction.message.components 
-            });
+            const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
+
+            if (itemRes.rowCount === 0) {
+                console.log('[DEBUG] Item não encontrado no banco de dados.');
+                return interaction.update({ content: 'Ops! Este uniforme não existe mais.', embeds: [], components: interaction.message.components });
+            }
+
+            const item = itemRes.rows[0];
+            // VAMOS VER O QUE O BANCO DE DADOS NOS DEVOLVEU
+            console.log('[DEBUG] Dados do uniforme recuperados do banco:', item); 
+
+            if (!item.imagem_url || !item.imagem_url.startsWith('http')) {
+                console.error(`[DEBUG] ALERTA: A URL da imagem parece inválida ou está vazia: "${item.imagem_url}"`);
+            }
+
+            const updatedEmbed = new EmbedBuilder()
+                .setColor('#3498db')
+                .setTitle(item.nome)
+                .setImage(item.imagem_url)
+                .addFields({
+                    name: 'Códigos (Preset)',
+                    value: '```\n' + (item.codigos || 'Nenhum código fornecido.') + '\n```'
+                })
+                .setFooter({ text: 'Copie os códigos acima para usar em jogo.' });
+            
+            console.log('[DEBUG] Embed criado. Tentando atualizar a mensagem...');
+            await interaction.update({ embeds: [updatedEmbed], components: interaction.message.components });
+            console.log('[DEBUG] Mensagem da vitrine atualizada com sucesso!');
+
+        } catch (error) {
+            console.error('[ERRO CRÍTICO NA VITRINE]:', error);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(e => console.error("Falha ao enviar resposta de erro:", e));
+            } else {
+                 await interaction.followUp({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(e => console.error("Falha ao enviar resposta de erro:", e));
+            }
         }
-
-        const item = itemRes.rows[0];
-
-        // --- CORREÇÃO FINAL AQUI ---
-        // Cria o novo embed com o Título, a IMAGEM e o CAMPO de códigos
-        const updatedEmbed = new EmbedBuilder()
-            .setColor('#3498db')
-            .setTitle(item.nome)
-            .setImage(item.imagem_url) // <-- A IMAGEM
-            .addFields({
-                name: 'Códigos (Preset)',
-                value: '```\n' + item.codigos + '\n```' // <-- O BLOCO DE CÓDIGO
-            })
-            .setFooter({ text: 'Copie os códigos acima para usar em jogo.' });
-        
-        // Atualiza a mensagem original, mantendo o menu de seleção no topo
-        await interaction.update({ embeds: [updatedEmbed], components: interaction.message.components });
     }
 }
 
