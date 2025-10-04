@@ -32,8 +32,8 @@ const createTablesSQL = `
     CREATE TABLE IF NOT EXISTS vestuario_configs (
         guild_id VARCHAR(255) PRIMARY KEY,
         showcase_channel_id VARCHAR(255),
-        showcase_message_id VARCHAR(255),
-        storage_channel_id VARCHAR(255) -- Coluna para o canal de imagens permanentes
+        showcase_message_id VARCHAR(255)
+        -- A coluna 'storage_channel_id' será adicionada pela função de alteração abaixo para garantir a compatibilidade
     );
 
     CREATE TABLE IF NOT EXISTS vestuario_items (
@@ -64,6 +64,13 @@ async function checkAndAlterTables() {
         'claimed_by': 'VARCHAR(255)'
     };
 
+    // *** INÍCIO DA CORREÇÃO ***
+    // Garante que a coluna para o canal de storage de uniformes exista.
+    const vestuarioConfigsColumns = {
+        'storage_channel_id': 'VARCHAR(255)'
+    };
+    // *** FIM DA CORREÇÃO ***
+
     // Função auxiliar para adicionar colunas se não existirem
     const addColumnIfNotExists = async (tableName, columns) => {
         for (const [column, type] of Object.entries(columns)) {
@@ -79,6 +86,10 @@ async function checkAndAlterTables() {
     try {
         await addColumnIfNotExists('guild_settings', guildSettingsColumns);
         await addColumnIfNotExists('tickets', ticketsColumns);
+        // *** INÍCIO DA CORREÇÃO ***
+        // Adiciona a verificação para a tabela de configurações do vestuário
+        await addColumnIfNotExists('vestuario_configs', vestuarioConfigsColumns);
+        // *** FIM DA CORREÇÃO ***
     } catch (error) {
         if (error.code !== '42P01') { // Ignora erro "tabela não existe"
             console.error(`[DATABASE] Erro ao verificar/alterar tabelas:`, error);
@@ -95,6 +106,7 @@ async function initializeDatabase() {
 
         // Cria todas as tabelas com a estrutura correta e final.
         await db.query(createTablesSQL);
+        // VERIFICA E ALTERA TODAS AS TABELAS, INCLUINDO A NOVA CORREÇÃO
         await checkAndAlterTables();
         console.log('[DATABASE] Esquema verificado e sincronizado com sucesso.');
     } catch (error) {
