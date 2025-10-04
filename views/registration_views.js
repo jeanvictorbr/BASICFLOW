@@ -1,4 +1,4 @@
-// Ficheiro: views/registration_views.js (VERSÃO FINAL COM IMAGEM CORRIGIDA)
+// Ficheiro: views/registration_views.js (VERSÃO FINAL CORRIGIDA)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -20,15 +20,13 @@ async function getRegistrationPanelPayload(guildId) {
     if (imageUrl) {
         components.push({
             type: ComponentType.MediaGallery,
-            // *** INÍCIO DA CORREÇÃO ***
             items: [{
                 type: ComponentType.MediaGalleryItem,
                 media: {
                     type: 0, // Image
-                    image_url: imageUrl
+                    url: imageUrl // <<< A CORREÇÃO ESTÁ AQUI
                 }
             }]
-            // *** FIM DA CORREÇÃO ***
         });
     }
 
@@ -46,6 +44,7 @@ async function getRegistrationPanelPayload(guildId) {
     return { flags: 1 << 15, components, content: '' };
 }
 
+// O restante do arquivo não muda
 function getRegistrationModal() {
     return new ModalBuilder()
         .setCustomId('registration_modal_submit')
@@ -84,14 +83,8 @@ function getRegistrationApprovalPayload(interaction, rpName, gameId) {
         .setTimestamp();
         
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`approve_registration:${interaction.user.id}`)
-            .setLabel('Aprovar')
-            .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-            .setCustomId(`reject_registration:${interaction.user.id}`)
-            .setLabel('Rejeitar')
-            .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`approve_registration:${interaction.user.id}`).setLabel('Aprovar').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`reject_registration:${interaction.user.id}`).setLabel('Rejeitar').setStyle(ButtonStyle.Danger)
     );
     return { embeds: [embed], components: [row] };
 }
@@ -116,7 +109,7 @@ function getRejectionDmEmbed(guild) {
         .setColor(0xED4245)
         .setTitle(`❌ Registo Rejeitado em ${guild.name}`)
         .setThumbnail(guild.iconURL())
-        .setDescription('O seu pedido de registo foi analisado pela nossa staff e infelizmente foi rejeitado.\n\nSe acredita que foi um engano, pode tentar submeter um novo registo ou contactar um membro da staff para mais detalhes.')
+        .setDescription('O seu pedido de registo foi analisado e infelizmente foi rejeitado.\n\nSe acredita que foi um engano, pode tentar submeter um novo registo ou contactar um membro da staff.')
         .setFooter({ text: `Servidor: ${guild.name}` })
         .setTimestamp();
 }

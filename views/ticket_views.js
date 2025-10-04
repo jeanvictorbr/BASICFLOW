@@ -20,15 +20,13 @@ async function getTicketPanelPayload(guildId) {
     if (imageUrl) {
         components.push({
             type: ComponentType.MediaGallery,
-            // *** INÍCIO DA CORREÇÃO ***
             items: [{
                 type: ComponentType.MediaGalleryItem,
                 media: {
                     type: 0, // Image
-                    image_url: imageUrl
+                    url: imageUrl // <<< A CORREÇÃO ESTÁ AQUI
                 }
             }]
-            // *** FIM DA CORREÇÃO ***
         });
     }
 
@@ -45,8 +43,8 @@ async function getTicketPanelPayload(guildId) {
 
     return { flags: 1 << 15, components, content: '' };
 }
-// O restante do arquivo (dashboard do ticket) permanece o mesmo.
-// ... (código existente para getTicketDashboardPayload)
+
+// O restante do arquivo não muda
 function getTicketDashboardPayload(ticketData) {
     const { user, guild, ticketId, claimed_by } = ticketData;
     let status = '🟢 Aberto';
@@ -67,27 +65,10 @@ function getTicketDashboardPayload(ticketData) {
         .setFooter({ text: `Servidor: ${guild.name}` });
     
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`close_ticket_prompt:${ticketId}`)
-            .setLabel('Fechar')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('🔒'),
-        new ButtonBuilder()
-            .setCustomId(`claim_ticket:${ticketId}`)
-            .setLabel('Reivindicar')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('🙋')
-            .setDisabled(!!claimed_by), // Desativa se já foi reivindicado
-        new ButtonBuilder()
-            .setCustomId(`transcript_ticket:${ticketId}`)
-            .setLabel('Transcrição')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('📜'),
-        new ButtonBuilder()
-            .setCustomId(`alert_staff:${ticketId}`)
-            .setLabel('Alertar Staff')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('🔔')
+        new ButtonBuilder().setCustomId(`close_ticket_prompt:${ticketId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+        new ButtonBuilder().setCustomId(`claim_ticket:${ticketId}`).setLabel('Reivindicar').setStyle(ButtonStyle.Primary).setEmoji('🙋').setDisabled(!!claimed_by),
+        new ButtonBuilder().setCustomId(`transcript_ticket:${ticketId}`).setLabel('Transcrição').setStyle(ButtonStyle.Secondary).setEmoji('📜'),
+        new ButtonBuilder().setCustomId(`alert_staff:${ticketId}`).setLabel('Alertar Staff').setStyle(ButtonStyle.Secondary).setEmoji('🔔')
     );
     return { embeds: [embed], components: [row] };
 }
