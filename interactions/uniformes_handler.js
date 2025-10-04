@@ -1,4 +1,4 @@
-// Ficheiro: interactions/uniformes_handler.js (VERSÃO SIMPLIFICADA COM LINKS)
+// Ficheiro: interactions/uniformes_handler.js (VERSÃO FINAL CORRIGIDA)
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, StringSelectMenuBuilder } = require('discord.js');
 const db = require('../database/db');
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
@@ -94,7 +94,6 @@ async function handleButton(interaction) {
 async function handleModal(interaction) {
     const [action, itemId] = interaction.customId.split(':');
 
-    // VALIDAÇÃO BÁSICA DE URL
     const isValidUrl = (url) => url.startsWith('http://') || url.startsWith('https://');
 
     // SUBMISSÃO DE NOVO ITEM
@@ -114,7 +113,7 @@ async function handleModal(interaction) {
             await updateShowcase(interaction.client, interaction.guildId);
         } catch (error) {
             console.error('Erro ao adicionar uniforme:', error);
-            await interaction.editReply({ content: '❌ Ocorreu um erro ao salvar o uniforme no banco de dados. Verifique se já não existe um uniforme com o mesmo nome.' });
+            await interaction.editReply({ content: '❌ Ocorreu um erro ao salvar o uniforme. Verifique se já não existe um uniforme com o mesmo nome.' });
         }
         return;
     }
@@ -127,7 +126,7 @@ async function handleModal(interaction) {
         const imageUrl = interaction.fields.getTextInputValue('item_image_url');
 
         if (!isValidUrl(imageUrl)) {
-            return interaction.editReply({ content: '❌ O link da imagem fornecido é inválido. Certifique-se de que começa com `http://` ou `https://`.' });
+            return interaction.editReply({ content: '❌ O link da imagem fornecido é inválido.' });
         }
         
         try {
@@ -143,10 +142,12 @@ async function handleModal(interaction) {
 
 // -- LÓGICA DE MENUS DE SELEÇÃO --
 async function handleSelectMenu(interaction) {
+    // *** INÍCIO DA CORREÇÃO ***
+    const [action, itemId] = interaction.values[0].split(':');
+
     // EXIBIR NA VITRINE
     if (interaction.customId === 'uniformes_showcase_select') {
         await interaction.deferUpdate();
-        const itemId = interaction.values[0].replace('uniformes_item_', '');
         const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
         if (itemRes.rowCount === 0) return;
         const item = itemRes.rows[0];
@@ -160,11 +161,11 @@ async function handleSelectMenu(interaction) {
         await interaction.message.edit({ embeds: [updatedEmbed] });
         return;
     }
+    // *** FIM DA CORREÇÃO ***
 
     // MOSTRAR OPÇÕES DE GESTÃO PARA O ITEM SELECIONADO
-    if (interaction.customId === 'uniformes_select_to_manage') {
+    if (action === 'uniformes_manage_select') {
         await interaction.deferUpdate();
-        const [action, itemId] = interaction.values[0].split(':');
         const itemRes = await db.query('SELECT nome FROM vestuario_items WHERE id = $1 AND guild_id = $2', [itemId, interaction.guildId]);
         if (itemRes.rowCount === 0) {
             return interaction.editReply({ content: 'Este item não foi encontrado.', components: [] });
@@ -188,7 +189,7 @@ async function handleChannelSelect(interaction) {
         await db.query('INSERT INTO vestuario_configs (guild_id, showcase_channel_id) VALUES ($1, $2) ON CONFLICT (guild_id) DO UPDATE SET showcase_channel_id = $2, showcase_message_id = NULL', [guildId, channelId]);
         await interaction.followUp({ content: `✅ Canal da vitrine definido para <#${channelId}>. A publicar/atualizar a vitrine...`, ephemeral: true });
         await updateShowcase(interaction.client, guildId);
-        await showConfigPanel(interaction); // Atualiza o painel para mostrar a mudança
+        await showConfigPanel(interaction);
     }
 }
 

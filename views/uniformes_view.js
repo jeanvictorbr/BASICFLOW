@@ -1,4 +1,4 @@
-// Ficheiro: views/uniformes_view.js (VERSÃO SIMPLIFICADA)
+// Ficheiro: views/uniformes_view.js (VERSÃO FINAL CORRIGIDA)
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const db = require('../database/db');
 
@@ -64,7 +64,9 @@ async function updateShowcase(client, guildId) {
     if (items.length > 0) {
         const itemOptions = items.map(item => ({
             label: item.nome,
-            value: `uniformes_item_:${item.id}`,
+            // *** INÍCIO DA CORREÇÃO ***
+            value: `uniformes_showcase_select:${item.id}`,
+            // *** FIM DA CORREÇÃO ***
         }));
 
         const selectMenu = new StringSelectMenuBuilder()
