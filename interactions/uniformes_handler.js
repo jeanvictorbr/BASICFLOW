@@ -2,9 +2,6 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const db = require('../database/db');
 const { updateShowcase, showConfigPanel } = require('../views/uniformes_view');
 
-// As outras funções (handleButton, handleModal, etc.) não precisam de alteração
-// Apenas a handleStringSelect foi modificada para depuração.
-
 async function handleButton(interaction) {
     const customId = interaction.customId;
 
@@ -28,6 +25,7 @@ async function handleButton(interaction) {
         
         const row = new ActionRowBuilder().addComponents(menu);
         await interaction.reply({ content: 'Por favor, selecione em qual canal a vitrine de uniformes deve ser exibida.', components: [row], ephemeral: true });
+
     } else if (customId === 'uniformes_edit_remove_item') {
         const itemsRes = await db.query('SELECT id, nome FROM vestuario_items WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
         if (itemsRes.rowCount === 0) {
@@ -81,45 +79,45 @@ async function handleModal(interaction) {
 async function handleStringSelect(interaction) {
     if (interaction.customId === 'uniformes_showcase_select') {
         try {
-            console.log('--- [DEBUG] Iniciando exibição de uniforme ---');
-            const itemId = interaction.values[0].replace('uniformes_item_', '');
-            console.log(`[DEBUG] ID do item selecionado: ${itemId}`);
+            await interaction.deferUpdate();
 
+            const itemId = interaction.values[0].replace('uniformes_item_', '');
             const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
 
             if (itemRes.rowCount === 0) {
-                console.log('[DEBUG] Item não encontrado no banco de dados.');
-                return interaction.update({ content: 'Ops! Este uniforme não existe mais.', embeds: [], components: interaction.message.components });
+                // Se o item não for encontrado, apenas avisa o usuário de forma efêmera
+                return interaction.followUp({ content: 'Ops! Este uniforme não foi encontrado ou foi removido.', ephemeral: true });
             }
 
             const item = itemRes.rows[0];
-            // VAMOS VER O QUE O BANCO DE DADOS NOS DEVOLVEU
-            console.log('[DEBUG] Dados do uniforme recuperados do banco:', item); 
-
-            if (!item.imagem_url || !item.imagem_url.startsWith('http')) {
-                console.error(`[DEBUG] ALERTA: A URL da imagem parece inválida ou está vazia: "${item.imagem_url}"`);
-            }
-
-            const updatedEmbed = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle(item.nome)
-                .setImage(item.imagem_url)
+            
+            // Cria o embed principal com as informações de texto
+            const mainEmbed = new EmbedBuilder()
+                .setColor('#2c3e50')
+                .setTitle('👕 Vestiário da Organização')
+                .setDescription(`**UNIFORME SELECIONADO: ${item.nome}**`)
                 .addFields({
                     name: 'Códigos (Preset)',
                     value: '```\n' + (item.codigos || 'Nenhum código fornecido.') + '\n```'
                 })
-                .setFooter({ text: 'Copie os códigos acima para usar em jogo.' });
+                .setFooter({ text: 'Use o menu acima para selecionar outro uniforme.' });
             
-            console.log('[DEBUG] Embed criado. Tentando atualizar a mensagem...');
-            await interaction.update({ embeds: [updatedEmbed], components: interaction.message.components });
-            console.log('[DEBUG] Mensagem da vitrine atualizada com sucesso!');
+            // Cria um SEGUNDO embed apenas para a imagem
+            const imageEmbed = new EmbedBuilder()
+                .setColor('#2c3e50')
+                .setImage(item.imagem_url);
+            
+            // Edita a mensagem original para incluir os DOIS embeds
+            // Isso força o Discord a renderizar a imagem corretamente
+            await interaction.message.edit({ embeds: [mainEmbed, imageEmbed], components: interaction.message.components });
 
         } catch (error) {
             console.error('[ERRO CRÍTICO NA VITRINE]:', error);
+            // Evita crashar se a interação já tiver sido respondida
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(e => console.error("Falha ao enviar resposta de erro:", e));
+                await interaction.reply({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(() => {});
             } else {
-                 await interaction.followUp({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(e => console.error("Falha ao enviar resposta de erro:", e));
+                 await interaction.followUp({ content: 'Ocorreu um erro ao exibir o uniforme.', ephemeral: true }).catch(() => {});
             }
         }
     }
