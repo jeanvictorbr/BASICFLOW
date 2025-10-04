@@ -1,18 +1,12 @@
-// Ficheiro: views/changelog_view.js
-// Reconstruído para suportar paginação.
-
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+// Ficheiro: views/changelog_view.js (VERSÃO COM LAYOUT COMPONENTS V2)
+const { ComponentType, ButtonStyle } = require('discord.js');
 const db = require('../database/db.js');
 
-const UPDATES_PER_PAGE = 5;
+const UPDATES_PER_PAGE = 3; // Reduzido para melhor visualização
 
 const PROMOTION_DATA = {
     title: "💎 Conheça as Nossas Versões Completas!",
-    description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas e repletas de funcionalidades.",
-    projects: [
-        { name: "Police Flow (Para Servidores Policiais)", url: "https://flow-bots.com/policeflow" },
-        { name: "Faction Flow (Para Facções e Organizações)", url: "https://flow-bots.com/factionflow" }
-    ]
+    description: "O BasicFlow é apenas o começo. Leve a gestão da sua comunidade para o próximo nível com as nossas soluções especializadas e repletas de funcionalidades.\n\n➡️ **[Police Flow (Para Servidores Policiais)](https://flow-bots.com/policeflow)**\n➡️ **[Faction Flow (Para Facções e Organizações)](https://flow-bots.com/factionflow)**"
 };
 
 async function getChangelogPayload(page = 1) {
@@ -24,61 +18,62 @@ async function getChangelogPayload(page = 1) {
         
         const totalUpdates = parseInt(totalResult.count, 10);
         const totalPages = Math.ceil(totalUpdates / UPDATES_PER_PAGE) || 1;
+        page = Math.max(1, Math.min(page, totalPages));
 
-        if (page > totalPages) {
-             page = totalPages;
-        }
-
-        const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle(`📰 Atualizações Recentes do BasicFlow`)
-            .setImage('https://i.imgur.com/YuK1aVN.gif')
-            .setFooter({ text: `Powered by Flow Bots • Página ${page} de ${totalPages}` });
+        const components = [
+            { type: ComponentType.TextDisplay, content: '# 📰 Atualizações Recentes do BasicFlow' }
+        ];
 
         if (updates.length === 0) {
-            embed.setDescription('Ainda não há nenhuma atualização para mostrar.');
+            components.push({ type: ComponentType.TextDisplay, content: '*Ainda não há nenhuma atualização para mostrar.*' });
         } else {
-            const latestUpdate = updates[0];
-            const updateDate = new Date(Number(latestUpdate.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-            embed.setDescription(`*A apresentar as atualizações mais recentes. Última em: ${updateDate}*`);
-
             for (const update of updates) {
-                embed.addFields({ name: `- ${update.title}`, value: update.description, inline: false });
+                const updateDate = new Date(Number(update.timestamp)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+                components.push({ type: ComponentType.Separator });
+                components.push({
+                    type: ComponentType.Section,
+                    components: [
+                        { type: ComponentType.TextDisplay, content: `### ${update.title}` },
+                        { type: ComponentType.TextDisplay, content: update.description }
+                    ],
+                    accessory: {
+                        type: ComponentType.Thumbnail,
+                        image_url: "https://i.imgur.com/YuK1aVN.gif",
+                        size: 'lg'
+                    }
+                });
             }
         }
         
         if (page === totalPages && PROMOTION_DATA) {
-            const promoDescription = `${PROMOTION_DATA.description}\n\n` +
-                PROMOTION_DATA.projects.map(p => `➡️ **[${p.name}](${p.url})**`).join('\n');
-            embed.addFields({ name: `\u200B\n${PROMOTION_DATA.title}`, value: promoDescription, inline: false });
+            components.push({ type: ComponentType.Separator });
+            components.push({
+                type: ComponentType.Container,
+                color: 0x5865F2,
+                components: [
+                    { type: ComponentType.TextDisplay, content: `## ${PROMOTION_DATA.title}` },
+                    { type: ComponentType.TextDisplay, content: PROMOTION_DATA.description }
+                ]
+            });
         }
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`changelog_page:${page - 1}`)
-                .setLabel('Anterior')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('⬅️')
-                .setDisabled(page <= 1),
-            new ButtonBuilder()
-                .setCustomId(`changelog_page:${page + 1}`)
-                .setLabel('Próximo')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('➡️')
-                .setDisabled(page >= totalPages)
-        );
-        
-        return { embeds: [embed], components: [row] };
+        components.push({ type: ComponentType.Separator });
+        components.push({
+            type: ComponentType.ActionRow,
+            components: [
+                { type: ComponentType.Button, style: ButtonStyle.Primary, label: 'Anterior', emoji: { name: '⬅️' }, custom_id: `changelog_page:${page - 1}`, disabled: page <= 1 },
+                { type: ComponentType.Button, style: ButtonStyle.Secondary, label: `Página ${page} de ${totalPages}`, custom_id: 'changelog_page_indicator', disabled: true },
+                { type: ComponentType.Button, style: ButtonStyle.Primary, label: 'Próximo', emoji: { name: '➡️' }, custom_id: `changelog_page:${page + 1}`, disabled: page >= totalPages },
+                { type: ComponentType.Button, style: ButtonStyle.Secondary, label: 'Voltar', custom_id: 'config_menu:main' }
+            ]
+        });
+
+        return { flags: 1 << 15, components, embeds: [], content: '' };
 
     } catch (error) {
-        console.error("[CHANGELOG] Erro ao buscar atualizações da base de dados:", error);
-        const errorEmbed = new EmbedBuilder()
-            .setColor(0xED4245)
-            .setTitle('❌ Erro ao Carregar Atualizações')
-            .setDescription('Não foi possível buscar as informações de atualização no momento. Verifique os logs do bot para mais detalhes.');
-        return { embeds: [errorEmbed] };
+        console.error("[CHANGELOG] Erro ao buscar atualizações:", error);
+        return { content: '❌ Erro ao Carregar Atualizações.', ephemeral: true };
     }
 }
 
 module.exports = { getChangelogPayload };
-

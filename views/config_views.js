@@ -38,17 +38,17 @@ async function getConfigDashboardPayload(guild, userId) {
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 📝 Registos\n*Configurações para o sistema de registo de novos membros.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Gerir Registos', custom_id: 'config_menu:registration' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:registration' }
         },
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 🏝️ Ausências\n*Configurações para o sistema de ausências.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Gerir Ausências', custom_id: 'config_menu:absence' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:absence' }
         },
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 🎫 Tickets\n*Configurações para o sistema de atendimento.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: 'Gerir Tickets', custom_id: 'config_menu:ticket' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:ticket' }
         },
         { type: ComponentType.Separator },
         {

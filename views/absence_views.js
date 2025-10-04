@@ -1,32 +1,32 @@
-// Ficheiro: views/absence_views.js
-// Atualizado para usar imagens dinâmicas e padronizadas.
-
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+// Ficheiro: views/absence_views.js (VERSÃO COM LAYOUT COMPONENTS V2)
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
-const BOT_LOG_IMAGE_URL = 'https://i.imgur.com/YuK1aVN.gif';
-
 async function getAbsencePanelPayload(guildId) {
-    const settings = await db.get('SELECT absence_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
-    const imageUrl = settings?.absence_panel_image_url || BOT_LOG_IMAGE_URL;
-
-    const embed = new EmbedBuilder()
-        .setColor(0x3498DB)
-        .setTitle('🏝️ Central de Ausências')
-        .setDescription('Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente para evitar ser removido por inatividade.')
-        .setImage(imageUrl)
-        .setFooter({ text: 'BasicFlow • Sistema de Ausências' });
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('initiate_absence')
-            .setLabel('Informar Ausência')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('🗓️')
-    );
-    return { embeds: [embed], components: [row] };
+    const components = [
+        {
+            type: ComponentType.Container,
+            color: 0x3498DB,
+            components: [
+                { type: ComponentType.TextDisplay, content: '## 🏝️ Central de Ausências' },
+                { type: ComponentType.TextDisplay, content: 'Precisa de se ausentar por um período?\n\nUtilize o botão abaixo para notificar a administração. O seu pedido será analisado e, se aprovado, você receberá o cargo de ausente para evitar ser removido por inatividade.' },
+            ]
+        },
+        {
+            type: ComponentType.ActionRow,
+            components: [{
+                type: ComponentType.Button,
+                style: ButtonStyle.Primary,
+                label: 'Informar Ausência',
+                emoji: { name: '🗓️' },
+                custom_id: 'initiate_absence',
+            }]
+        }
+    ];
+    return { flags: 1 << 15, components, content: '' };
 }
-
+// O restante do arquivo (modais, embeds de aprovação) permanece o mesmo.
+// ... (código existente para getAbsenceModal, getAbsenceApprovalPayload, etc.)
 function getAbsenceModal() {
     return new ModalBuilder()
         .setCustomId('absence_modal_submit')
@@ -65,7 +65,6 @@ function getAbsenceApprovalPayload(interaction, startDate, endDate, reason) {
         .setTitle('📥 Novo Pedido de Ausência')
         .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 128 }))
-        .setImage(BOT_LOG_IMAGE_URL)
         .addFields(
             { name: '👤 Utilizador', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: false },
             { name: '🗓️ Período', value: `De \`${startDate}\` até \`${endDate}\``, inline: false },
