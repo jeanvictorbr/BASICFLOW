@@ -25,7 +25,6 @@ async function handleButton(interaction) {
         
         const row = new ActionRowBuilder().addComponents(menu);
         await interaction.reply({ content: 'Por favor, selecione em qual canal a vitrine de uniformes deve ser exibida.', components: [row], ephemeral: true });
-
     } else if (customId === 'uniformes_edit_remove_item') {
         const itemsRes = await db.query('SELECT id, nome FROM vestuario_items WHERE guild_id = $1 ORDER BY nome', [interaction.guild.id]);
         if (itemsRes.rowCount === 0) {
@@ -77,13 +76,11 @@ async function handleModal(interaction) {
 }
 
 async function handleStringSelect(interaction) {
-    // --- LÓGICA PRINCIPAL ALTERADA AQUI ---
     if (interaction.customId === 'uniformes_showcase_select') {
         const itemId = interaction.values[0].replace('uniformes_item_', '');
         const itemRes = await db.query('SELECT * FROM vestuario_items WHERE id = $1', [itemId]);
 
         if (itemRes.rowCount === 0) {
-            // Edita a mensagem principal para informar que o item sumiu
             return interaction.update({ 
                 content: 'Ops! Este uniforme não existe mais.', 
                 embeds: [], 
@@ -93,11 +90,12 @@ async function handleStringSelect(interaction) {
 
         const item = itemRes.rows[0];
 
-        // Cria o novo embed com a foto e os códigos
+        // --- CORREÇÃO AQUI ---
+        // Cria o novo embed com o Título, a IMAGEM e o CAMPO de códigos
         const updatedEmbed = new EmbedBuilder()
             .setColor('#3498db')
             .setTitle(item.nome)
-            .setImage(item.imagem_url)
+            .setImage(item.imagem_url) // <-- A IMAGEM ESTÁ AQUI
             .addFields({
                 name: 'Códigos (Preset)',
                 value: '```\n' + item.codigos + '\n```'
