@@ -48,6 +48,7 @@ async function getConfigDashboardPayload(guild, userId) {
     return { embeds: [embed], components: rows, ephemeral: true };
 }
 
+
 // --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria (ESTILO V2) ---
 async function getCategoryPayload(guild, category) {
     // CORREÇÃO CRÍTICA DA QUERY SQL
@@ -103,36 +104,46 @@ async function getCategoryPayload(guild, category) {
     if (currentCategory) {
         embed.setTitle(currentCategory.title);
         
-        let rowButtons = new ActionRowBuilder();
         const fields = [];
+        let buttonRow = new ActionRowBuilder();
 
         for (const setting of currentCategory.settings) {
-            // Adiciona a informação como um campo "inline" no embed
+            // Adiciona a informação como um campo "inline" para criar colunas
             fields.push({
                 name: `**${setting.label}**`,
                 value: formatStatus(settings, setting.key, setting.type),
                 inline: true
             });
 
-            // Adiciona um botão correspondente na linha de botões
-            rowButtons.addComponents(
+            // Adiciona um botão para cada configuração
+            buttonRow.addComponents(
                 new ButtonBuilder()
                     .setCustomId(setting.buttonId)
                     .setLabel(`Alterar ${setting.label}`)
                     .setStyle(ButtonStyle.Primary)
             );
-        }
 
-        // Adiciona um campo em branco se o número de campos for ímpar, para manter o alinhamento
-        if (fields.length % 3 === 2) {
-            fields.push({ name: '\u200B', value: '\u200B', inline: true });
+            // O Discord só permite 5 botões por linha. Se atingir o limite, cria uma nova linha.
+            if (buttonRow.components.length === 5) {
+                components.push(buttonRow);
+                buttonRow = new ActionRowBuilder();
+            }
         }
         
+        // Adiciona a linha de botões se ela tiver algum botão
+        if (buttonRow.components.length > 0) {
+            components.push(buttonRow);
+        }
+
+        // Adiciona um campo em branco se o número de campos for ímpar, para manter o alinhamento do grid
+        if (fields.length % 3 !== 0) {
+             fields.push({ name: '\u200B', value: '\u200B', inline: true });
+        }
+
         embed.setFields(fields);
-        components.push(rowButtons);
     }
     
-    // Botão de Voltar
+    // Adiciona o botão de Voltar no final
     components.push(
         new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('config_menu:main').setLabel('⬅️ Voltar').setStyle(ButtonStyle.Secondary)
