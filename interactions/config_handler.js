@@ -9,25 +9,25 @@ const { getPontoConfigMenu } = require('../views/ponto_views.js');
 
 // --- HANDLER GENÉRICO ---
 
-/**
- * Handler para o botão de voltar ao menu principal de configurações.
- */
 const backToMainMenuHandler = {
     customId: 'config_back_main',
     async execute(interaction) {
+        // Adiciona o deferUpdate para evitar timeouts
+        await interaction.deferUpdate();
         const payload = await getMainMenuPayload(interaction.guild); 
-        await interaction.update(payload);
+        await interaction.editReply(payload);
     }
 };
 
-// --- HANDLERS PARA CONFIGURAÇÃO DE REGISTRO (JÁ EXISTENTE) ---
+// --- HANDLERS PARA CONFIGURAÇÃO DE REGISTRO ---
 
 const configRegistrationHandler = {
     customId: 'config_registration',
     async execute(interaction) {
+        await interaction.deferUpdate();
         const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
         const payload = getRegistrationConfigMenu(settings);
-        await interaction.update(payload);
+        await interaction.editReply(payload);
     }
 };
 
@@ -80,16 +80,18 @@ const saveRegistrationConfigHandler = {
     }
 };
 
-// --- HANDLERS PARA CONFIGURAÇÃO DE TICKETS (JÁ EXISTENTE) ---
+// --- HANDLERS PARA CONFIGURAÇÃO DE TICKETS ---
 
 const configTicketsHandler = {
     customId: 'config_tickets',
     async execute(interaction) {
+        await interaction.deferUpdate();
         const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
         const payload = getTicketsConfigMenu(settings);
-        await interaction.update(payload);
+        await interaction.editReply(payload);
     }
 };
+
 
 const openTicketsModalHandler = {
     customId: 'config_tickets_main',
@@ -149,24 +151,26 @@ const saveTicketsConfigHandler = {
 };
 
 
-// --- HANDLERS PARA CONFIGURAÇÃO DO BATE-PONTO (NOVO) ---
+// --- HANDLERS PARA CONFIGURAÇÃO DO BATE-PONTO (NOVO E CORRIGIDO) ---
 
 const configPontoMenuHandler = {
     customId: 'config_ponto',
     async execute(interaction) {
+        await interaction.deferUpdate();
         const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
         const payload = getPontoConfigMenu(settings); 
-        await interaction.update(payload);
+        await interaction.editReply(payload);
     }
 };
 
 const openPontoConfigModalHandler = {
     customId: 'config_ponto_main',
     async execute(interaction) {
+        // Modais não precisam de defer, pois showModal() é uma resposta imediata.
         const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
         const modal = new ModalBuilder()
-            .setCustomId('ponto_config_modal_submit')
-            .setTitle('Configurações Gerais do Ponto');
+               .setCustomId('ponto_config_modal_submit')
+               .setTitle('Configurações Gerais do Ponto');
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(new TextInputBuilder()

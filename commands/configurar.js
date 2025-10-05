@@ -1,11 +1,8 @@
-// Ficheiro: commands/configurar.js
-// Comando simplificado que chama o handler dedicado.
+// Ficheiro: commands/configurar.js (VERSÃO CORRIGIDA)
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-
-// CORREÇÃO: O caminho para o handler foi corrigido de '../' para './'
-// Isto diz ao ficheiro para procurar a pasta 'handlers' dentro da pasta 'commands'.
-const { handleConfigCommand } = require('./handlers/config_handler.js');
+// CORREÇÃO: O caminho para o handler foi ajustado para a estrutura de interações.
+const { handleConfigCommand } = require('../interactions/handlers/config_handler.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -14,7 +11,10 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
         
     async execute(interaction) {
-        // A única responsabilidade deste ficheiro é chamar o handler robusto.
+        // ADIÇÃO: "Adia" a resposta para evitar timeouts no carregamento inicial.
+        await interaction.deferReply({ ephemeral: true });
+
+        // A responsabilidade deste ficheiro é chamar o handler robusto.
         await handleConfigCommand(interaction);
     },
 };

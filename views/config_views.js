@@ -1,4 +1,5 @@
-// Ficheiro: views/config_views.js (VERSÃO FINAL COM NAVEGAÇÃO)
+// Ficheiro: views/config_views.js (VERSÃO FINAL COM TODAS AS INTEGRAÇÕES)
+
 const { ButtonStyle, ComponentType } = require('discord.js');
 const db = require('../database/db.js');
 
@@ -38,17 +39,23 @@ async function getConfigDashboardPayload(guild, userId) {
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 📝 Registos\n*Configurações para o sistema de registo de novos membros.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:registration' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir', custom_id: 'config_menu:registration' }
         },
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 🏝️ Ausências\n*Configurações para o sistema de ausências.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:absence' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir', custom_id: 'config_menu:absence' }
         },
         {
             type: ComponentType.Section,
             components: [{ type: ComponentType.TextDisplay, content: '### 🎫 Tickets\n*Configurações para o sistema de atendimento.*' }],
-            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir ', custom_id: 'config_menu:ticket' }
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir', custom_id: 'config_menu:ticket' }
+        },
+        // --- NOVA SEÇÃO DE BATE-PONTO ADICIONADA AQUI ---
+        {
+            type: ComponentType.Section,
+            components: [{ type: ComponentType.TextDisplay, content: '### 🕒 Bate-Ponto\n*Configurações para o sistema de ponto e serviço.*' }],
+            accessory: { type: ComponentType.Button, style: ButtonStyle.Success, label: '⚙️ Gerir', custom_id: 'config_menu:ponto' }
         },
         { type: ComponentType.Separator },
         {
@@ -60,7 +67,7 @@ async function getConfigDashboardPayload(guild, userId) {
         }
     ];
 
-    return { flags: 1 << 15, components, embeds: [], content: '' };
+    return { flags: 1 << 6, components, embeds: [], content: '' }; // Usar flag 64 (Ephemeral)
 }
 
 // Gera a TELA SECUNDÁRIA para uma categoria específica
@@ -89,7 +96,7 @@ async function getCategoryPayload(guild, category) {
                 createSettingSection('Canal de Logs', formatSettingText(settings, 'absence_channel_id', 'channel'), 'config_set_absence_channel'),
                 createSettingSection('Cargo de Ausente', formatSettingText(settings, 'absence_role_id', 'role'), 'config_set_absence_role'),
                 createSettingSection('Imagem do Painel', formatImageSettingText(settings, 'absence_panel_image_url'), 'config_set_absence_image'),
-                 {
+                {
                     type: ComponentType.ActionRow,
                     components: [{ type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Painel de Ausência', custom_id: 'config_publish_absence_panel' }]
                 }
@@ -102,9 +109,24 @@ async function getCategoryPayload(guild, category) {
                 createSettingSection('Cargo de Suporte', formatSettingText(settings, 'support_role_id', 'role'), 'config_set_support_role'),
                 createSettingSection('Canal de Logs', formatSettingText(settings, 'ticket_log_channel_id', 'channel'), 'config_set_ticket_log_channel'),
                 createSettingSection('Imagem do Painel', formatImageSettingText(settings, 'ticket_panel_image_url'), 'config_set_ticket_image'),
-                 {
+                {
                     type: ComponentType.ActionRow,
                     components: [{ type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Painel de Ticket', custom_id: 'config_publish_ticket_panel' }]
+                }
+            ];
+            break;
+        // --- NOVA CATEGORIA DE BATE-PONTO ADICIONADA ---
+        case 'ponto':
+            title = '### 🕒 Configurações de Bate-Ponto';
+            categoryComponents = [
+                createSettingSection('Canal da Vitrine', formatSettingText(settings, 'ponto_vitrine_channel_id', 'channel'), 'config_set_ponto_vitrine_channel'),
+                createSettingSection('Canal de Logs', formatSettingText(settings, 'ponto_log_channel_id', 'channel'), 'config_set_ponto_log_channel'),
+                createSettingSection('Cargo "Em Serviço"', formatSettingText(settings, 'ponto_role_id', 'role'), 'config_set_ponto_role'),
+                createSettingSection('Categoria dos Canais', formatSettingText(settings, 'ponto_temp_category_id', 'channel'), 'config_set_ponto_category'),
+                createSettingSection('Prefixo de Nickname', formatTagSettingText(settings, 'ponto_nickname_prefix'), 'config_set_ponto_nickname'),
+                {
+                    type: ComponentType.ActionRow,
+                    components: [{ type: ComponentType.Button, style: ButtonStyle.Success, label: 'Publicar Painel de Ponto', custom_id: 'config_publish_ponto_panel' }]
                 }
             ];
             break;
@@ -121,7 +143,7 @@ async function getCategoryPayload(guild, category) {
         }
     ];
 
-    return { flags: 1 << 15, components, embeds: [], content: '' };
+    return { flags: 1 << 6, components, embeds: [], content: '' }; // Usar flag 64 (Ephemeral)
 }
 
 module.exports = { 
