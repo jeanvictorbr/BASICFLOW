@@ -1,22 +1,23 @@
-const { SlashCommandBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
-// Simulação de um banco de dados para guardar as configurações
+// Simulação de um banco de dados
 const serverConfig = {
     approvalChannel: '#registro-prisao',
     approverRole: '@Gerente',
 };
 
-// Os "Tipos de Componentes" que a API do Discord entende, conforme sua explicação.
+// Os "Tipos de Componentes" que a API do Discord entende
 const ComponentType = {
     ActionRow: 1,
     Button: 2,
-    Container: 7, // O "card" principal
-    Section: 8,   // A linha com texto e acessório
-    TextDisplay: 9, // O bloco de texto
+    // Container: 7, // Removido, pois não é um componente de nível superior
+    Section: 8,
+    TextDisplay: 9,
 };
 
-// A flag que você mencionou para ativar o novo sistema.
-const IS_COMPONENTS_V2 = 1 << 15; // 32768
+// As flags que precisamos
+const V2_FLAG = 1 << 15; // Flag para ativar os componentes v2
+const EPHEMERAL_FLAG = 1 << 6; // Flag para tornar a mensagem efêmera
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,45 +26,39 @@ module.exports = {
 
     async execute(interaction) {
         
-        // Vamos construir o array de componentes "manualmente", seguindo sua estrutura.
         const componentsPayload = [
-            // 1. O Container Principal, que vai agrupar nossas seções.
+            // ERRO ANTERIOR: Tudo estava dentro de um Container.
+            // CORREÇÃO: Enviamos as Sections diretamente no array principal.
+
+            // 1. A primeira Section: Canal de Aprovação
             {
-                type: ComponentType.Container,
-                components: [
-                    // 2. A primeira Section: Canal de Aprovação
-                    {
-                        type: ComponentType.Section,
-                        // O "acessório" da seção é o nosso botão de editar
-                        accessory: {
-                            type: ComponentType.Button,
-                            style: ButtonStyle.Primary,
-                            label: 'Editar',
-                            custom_id: 'edit_channel_button',
-                        },
-                        // O conteúdo da seção é o nosso TextDisplay
-                        components: [{
-                            type: ComponentType.TextDisplay,
-                            content: `** Canal de Aprovação Atual**\nConfigure o canal para enviar as solicitações.\n> ${serverConfig.approvalChannel}`
-                        }]
-                    },
-                    // 3. A segunda Section: Cargo de Aprovador
-                    {
-                        type: ComponentType.Section,
-                        accessory: {
-                            type: ComponentType.Button,
-                            style: ButtonStyle.Primary,
-                            label: 'Editar',
-                            custom_id: 'edit_role_button',
-                        },
-                        components: [{
-                            type: ComponentType.TextDisplay,
-                            content: `** Cargo de Aprovador Atual**\nConfigure o cargo que poderá aprovar as solicitações.\n> ${serverConfig.approverRole}`
-                        }]
-                    }
-                ]
+                type: ComponentType.Section,
+                accessory: {
+                    type: ComponentType.Button,
+                    style: ButtonStyle.Primary,
+                    label: 'Editar',
+                    custom_id: 'edit_channel_button',
+                },
+                components: [{
+                    type: ComponentType.TextDisplay,
+                    content: `** Canal de Aprovação Atual**\nConfigure o canal para enviar as solicitações.\n> ${serverConfig.approvalChannel}`
+                }]
             },
-            // 4. A ActionRow com os botões de ação principais, fora do container.
+            // 2. A segunda Section: Cargo de Aprovador
+            {
+                type: ComponentType.Section,
+                accessory: {
+                    type: ComponentType.Button,
+                    style: ButtonStyle.Primary,
+                    label: 'Editar',
+                    custom_id: 'edit_role_button',
+                },
+                components: [{
+                    type: ComponentType.TextDisplay,
+                    content: `** Cargo de Aprovador Atual**\nConfigure o cargo que poderá aprovar as solicitações.\n> ${serverConfig.approverRole}`
+                }]
+            },
+            // 3. A ActionRow com os botões de ação principais
             {
                 type: ComponentType.ActionRow,
                 components: [
@@ -83,11 +78,11 @@ module.exports = {
             }
         ];
 
-        // 5. Enviamos a resposta final com o payload e a flag obrigatória.
+        // Enviamos a resposta com as flags combinadas
         await interaction.reply({
             components: componentsPayload,
-            flags: IS_COMPONENTS_V2,
-            ephemeral: true
+            // CORREÇÃO: Combinamos as duas flags necessárias e removemos "ephemeral: true"
+            flags: V2_FLAG | EPHEMERAL_FLAG, 
         });
     },
 };
