@@ -1,72 +1,78 @@
-// index.js
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const dotenv = require('dotenv-flow');
+const database = require('./database/schema');
+const interactionHandler = require('./interactions/handler');
 
-require('dotenv-flow').config();
-const fs = require('node:fs');
-const path = require('node:path');
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const { handleInteraction } = require('./interactions/handler');
-const absenceChecker = require('./tasks/absence_checker');
-const { syncDatabase } = require('./database/schema'); // Importa a função de sincronização
+// Carrega as variáveis de ambiente
+dotenv.config();
 
-// Função principal assíncrona para garantir a ordem de inicialização
-const startBot = async () => {
-    // 1. Sincroniza o banco de dados ANTES de tudo
-    await syncDatabase();
+// Inicializa o Cliente do Discord com as Intents necessárias
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+    ],
+});
 
-    // 2. Cria e configura o cliente do Discord
-    const client = new Client({
-        intents: [
-            GatewayIntentBits.Guilds,
-            GatewayIntentBits.GuildMembers,
-            GatewayIntentBits.GuildMessages,
-            GatewayIntentBits.MessageContent,
-            GatewayIntentBits.GuildPresences,
-            GatewayIntentBits.GuildMessageReactions,
-        ],
-    });
+// Carrega os comandos
+client.commands = new Collection();
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-    // 3. Carrega todos os comandos
-    client.commands = new Collection();
-    const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-    console.log('[INFO] Carregando comandos de barra (/).');
-    for (const file of commandFiles) {
-        const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
-        if ('data' in command && 'execute' in command) {
-            client.commands.set(command.data.name, command);
-            console.log(`[+] Comando carregado: /${command.data.name}`);
-        } else {
-            console.log(`[AVISO] O comando em ${filePath} está faltando a propriedade "data" ou "execute".`);
-        }
+for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+        client.commands.set(command.data.name, command);
+    } else {
+        console.log(`[AVISO] O comando em ${filePath} está faltando uma propriedade "data" ou "execute".`);
     }
-    console.log('[INFO] Todos os comandos foram carregados com sucesso.');
+}
 
-    // 4. Define o que acontece quando o bot fica online
-    client.once('ready', () => {
-        console.log(`[INFO] Bot ${client.user.tag} está online e operacional!`);
-        absenceChecker.initialize(client);
-    });
+// Evento de Cliente Pronto
+client.once('ready', async () => {
+    console.log(`[INFO] Logado como ${client.user.tag}`);
+    console.log('[INFO] Inicializando e verificando o banco de dados...');
+    try {
+        await database.initializeDatabase();
+        console.log('[INFO] Banco de dados pronto.');
+    } catch (error) {
+        console.error('[ERRO] Não foi possível inicializar o banco de dados:', error);
+        process.exit(1); // Encerra o processo se o DB falhar
+    }
 
-    // 5. Define o handler para todas as interações
-    client.on('interactionCreate', async interaction => {
+    // O ideal é registrar os comandos via um script separado (deploy-commands.js),
+    // mas a inicialização aqui também é possível.
+    console.log('[INFO] O bot está online e pronto para operar.');
+});
+
+// Roteador de Interações
+client.on('interactionCreate', async interaction => {
+    if (interaction.isChatInputCommand()) {
+        const command = interaction.client.commands.get(interaction.commandName);
+
+        if (!command) {
+            console.error(`[ERRO] Nenhum comando correspondente a ${interaction.commandName} foi encontrado.`);
+            return;
+        }
+
         try {
-            await handleInteraction(interaction);
+            await command.execute(interaction);
         } catch (error) {
-            console.error('Erro fatal ao manusear a interação:', error);
+            console.error(error);
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
+                await interaction.followUp({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
             } else {
-                await interaction.reply({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
+                await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
             }
         }
-    });
+    } else {
+        // Delega todas as outras interações (botões, menus, modais) para o handler principal
+        interactionHandler.execute(interaction);
+    }
+});
 
-    // 6. Faz o login
-    console.log('[INFO] A iniciar sessão com o token...');
-    await client.login(process.env.BOT_TOKEN);
-};
-
-// Inicia o bot
-startBot();
+client.login(process.env.DISCORD_TOKEN);

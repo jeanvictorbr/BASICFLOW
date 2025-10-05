@@ -1,65 +1,40 @@
-// Ficheiro: views/ponto_views.js
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+async function getPontoPanelPayload(user, settings) {
+    // Importar DB aqui para evitar dependência cíclica
+    const db = require('../database/db');
 
-/**
- * Gera a vitrine principal do sistema de bate-ponto.
- */
-function getPontoVitrinePayload() {
-    const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle('🕒 Sistema de Bate-Ponto')
-        .setDescription('Utilize os botões abaixo para gerir o seu tempo de serviço.')
-        .setImage('https://i.imgur.com/URL_DA_IMAGEM_AQUI.png') // URL de imagem configurável
-        .setTimestamp();
+    const content = "## ⏰ Sistema de Ponto\nUtilize o botão abaixo para registrar sua entrada ou saída do serviço.";
+    
+    // Verifica se o usuário já tem um registro de ponto aberto
+    const lastRecord = await db.get(
+        'SELECT * FROM ponto_records WHERE user_id = $1 AND guild_id = $2 AND clock_out_time IS NULL ORDER BY clock_in_time DESC LIMIT 1',
+        [user.id, user.guild.id]
+    );
 
-    const buttons = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('ponto_iniciar')
-                .setLabel('▶️ Iniciar Ponto')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('ponto_encerrar')
-                .setLabel('⏹️ Encerrar Ponto')
-                .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-                .setCustomId('ponto_pausar')
-                .setLabel('⏸️ Pausar')
-                .setStyle(ButtonStyle.Secondary)
-        );
-        
-    const infoButtons = new ActionRowBuilder()
-        .addComponents(
-             new ButtonBuilder()
-                .setCustomId('ponto_meu_ponto')
-                .setLabel('📊 Minhas Horas')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId('ponto_ranking')
-                .setLabel('🏆 Ranking')
-                .setStyle(ButtonStyle.Primary)
-        );
+    let button;
+    if (lastRecord) {
+        // Usuário está em ponto
+        button = new ButtonBuilder()
+            .setCustomId('ponto:clock_out')
+            .setLabel('Registrar Saída')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('✖️');
+    } else {
+        // Usuário não está em ponto
+        button = new ButtonBuilder()
+            .setCustomId('ponto:clock_in')
+            .setLabel('Registrar Entrada')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('⏰');
+    }
+    
+    const components = [new ActionRowBuilder().addComponents(button)];
+    
+    // Aqui você adicionaria os componentes V2 como MediaGallery quando disponíveis
+    // Ex: if (settings.ponto_panel_image_url) { payload.media = ... }
 
-    return { embeds: [embed], components: [buttons, infoButtons] };
+    return { content, components };
 }
 
-
-/**
- * Gera o embed de log inicial para uma sessão de ponto.
- * @param {import('discord.js').User} user O usuário que iniciou o ponto.
- */
-function getPontoLogInitialEmbed(user) {
-    return new EmbedBuilder()
-        .setColor('Green')
-        .setAuthor({ name: `${user.tag} iniciou o serviço`, iconURL: user.displayAvatarURL() })
-        .setTitle(`Sessão de Ponto Iniciada`)
-        .addFields({ name: 'Histórico de Ações', value: `▶️ **Início:** <t:${Math.floor(Date.now() / 1000)}:R>` })
-        .setFooter({ text: `ID do Usuário: ${user.id}` })
-        .setTimestamp();
-}
-
-module.exports = {
-    getPontoVitrinePayload,
-    getPontoLogInitialEmbed
-};
+module.exports = { getPontoPanelPayload };

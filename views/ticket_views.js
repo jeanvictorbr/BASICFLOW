@@ -1,75 +1,34 @@
-// Ficheiro: views/ticket_views.js (VERSÃO FINAL E CORRETA)
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
-const db = require('../database/db.js');
+// views/ticket_views.js
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { GuildConfig } = require('../database/schema'); // Importa o modelo
 
-async function getTicketPanelPayload(guildId) {
-    const settings = await db.get('SELECT ticket_panel_image_url FROM guild_settings WHERE guild_id = $1', [guildId]);
-    const imageUrl = settings?.ticket_panel_image_url;
-
-    const components = [
-        {
-            type: ComponentType.Container,
-            color: 0xE74C3C,
-            components: [
-                { type: ComponentType.TextDisplay, content: '## 🎫 Central de Atendimento' },
-                { type: ComponentType.TextDisplay, content: 'Precisa de ajuda ou tem alguma questão?\n\nClique no botão abaixo para abrir um ticket privado.' },
-            ]
-        },
-    ];
-
-    if (imageUrl) {
-        components.push({
-            type: ComponentType.MediaGallery,
-            items: [{
-                type: ComponentType.MediaGalleryItem,
-                media: {
-                    type: 0, // Image
-                    url: imageUrl // A propriedade correta é "url"
-                }
-            }]
-        });
-    }
-
-    components.push({
-        type: ComponentType.ActionRow,
-        components: [{
-            type: ComponentType.Button,
-            style: ButtonStyle.Danger,
-            label: 'Abrir Ticket',
-            emoji: { name: '📩' },
-            custom_id: 'open_ticket',
-        }]
-    });
-
-    return { flags: 1 << 15, components, content: '' };
-}
-// O restante do arquivo não muda
-function getTicketDashboardPayload(ticketData) {
-    const { user, guild, ticketId, claimed_by } = ticketData;
-    let status = '🟢 Aberto';
-    if (claimed_by) {
-        status = `🟡 Atendido por <@${claimed_by}>`;
-    }
+async function getTicketConfigDashboard(guildId) {
+    const config = await GuildConfig.findOne({ where: { guildId } });
 
     const embed = new EmbedBuilder()
-        .setColor(claimed_by ? 0xFEE75C : 0x57F287)
-        .setTitle(`Ticket #${ticketId}`)
-        .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
-        .setThumbnail(guild.iconURL())
+        .setColor('#5865F2')
+        .setTitle('🎟️ Configuração do Sistema de Tickets')
+        .setDescription('Gerencie as configurações para a criação e gerenciamento de tickets.')
         .addFields(
-            { name: 'Utilizador', value: `${user}`, inline: true },
-            { name: 'Status', value: status, inline: true },
-            { name: 'Data de Abertura', value: `<t:${Math.floor(Date.now() / 1000)}:f>`, inline: false }
+            { name: 'Canal de Abertura', value: config?.ticketChannelId ? `<#${config.ticketChannelId}>` : 'Não definido', inline: true },
+            { name: 'Categoria para Tickets', value: config?.ticketCategoryId ? `<#${config.ticketCategoryId}>` : 'Não definido', inline: true },
+            { name: 'Cargo de Suporte', value: config?.ticketSupportRoleId ? `<@&${config.ticketSupportRoleId}>` : 'Não definido', inline: true }
         )
-        .setFooter({ text: `Servidor: ${guild.name}` });
-    
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`close_ticket_prompt:${ticketId}`).setLabel('Fechar').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-        new ButtonBuilder().setCustomId(`claim_ticket:${ticketId}`).setLabel('Reivindicar').setStyle(ButtonStyle.Primary).setEmoji('🙋').setDisabled(!!claimed_by),
-        new ButtonBuilder().setCustomId(`transcript_ticket:${ticketId}`).setLabel('Transcrição').setStyle(ButtonStyle.Secondary).setEmoji('📜'),
-        new ButtonBuilder().setCustomId(`alert_staff:${ticketId}`).setLabel('Alertar Staff').setStyle(ButtonStyle.Secondary).setEmoji('🔔')
-    );
-    return { embeds: [embed], components: [row] };
+        .setFooter({ text: `ID do Servidor: ${guildId}` });
+
+    const rows = [
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_config_set_channel').setLabel('Definir Canal de Abertura').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('ticket_config_set_category').setLabel('Definir Categoria').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('ticket_config_set_role').setLabel('Definir Cargo de Suporte').setStyle(ButtonStyle.Primary)
+        ),
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_config_send_panel').setLabel('Enviar Painel de Abertura').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('config_back_main').setLabel('Voltar').setStyle(ButtonStyle.Secondary)
+        )
+    ];
+
+    return { embeds: [embed], components: rows, ephemeral: true };
 }
 
-module.exports = { getTicketPanelPayload, getTicketDashboardPayload };
+module.exports = { getTicketConfigDashboard };

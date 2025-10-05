@@ -1,78 +1,120 @@
-// database/schema.js
-
 const db = require('./db');
 
-// Define a estrutura completa de todas as tabelas necessárias para o bot.
-const schemaSQL = `
-    CREATE TABLE IF NOT EXISTS guild_settings (
-        guild_id VARCHAR(255) PRIMARY KEY,
-        ticket_category_id VARCHAR(255),
-        support_role_id VARCHAR(255),
-        ticket_log_channel_id VARCHAR(255),
-        ponto_channel_id VARCHAR(255),
-        ponto_role_id VARCHAR(255),
-        absence_channel_id VARCHAR(255),
-        absence_log_channel_id VARCHAR(255),
-        absence_role_id VARCHAR(255),
-        registration_channel_id VARCHAR(255),
-        registration_log_channel_id VARCHAR(255),
-        member_role_id VARCHAR(255)
-    );
-
-    CREATE TABLE IF NOT EXISTS tickets (
-        ticket_id SERIAL PRIMARY KEY,
-        guild_id VARCHAR(255) NOT NULL,
-        user_id VARCHAR(255) NOT NULL,
-        channel_id VARCHAR(255) NOT NULL,
-        is_open BOOLEAN DEFAULT TRUE,
-        claimed_by VARCHAR(255),
-        closed_by VARCHAR(255),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        closed_at TIMESTAMPTZ
-    );
-
-    CREATE TABLE IF NOT EXISTS ponto_records (
-        record_id SERIAL PRIMARY KEY,
-        guild_id VARCHAR(255) NOT NULL,
-        user_id VARCHAR(255) NOT NULL,
-        start_time TIMESTAMPTZ DEFAULT NOW(),
-        end_time TIMESTAMPTZ,
-        message_id VARCHAR(255)
-    );
-
-    CREATE TABLE IF NOT EXISTS absences (
-        absence_id SERIAL PRIMARY KEY,
-        guild_id VARCHAR(255) NOT NULL,
-        user_id VARCHAR(255) NOT NULL,
-        start_date BIGINT NOT NULL,
-        end_date BIGINT NOT NULL,
-        reason TEXT,
-        status VARCHAR(50) DEFAULT 'pending', -- pending, approved, rejected, expired
-        approved_by VARCHAR(255),
-        rejected_by VARCHAR(255),
-        message_id VARCHAR(255)
-    );
-
-    CREATE TABLE IF NOT EXISTS uniforms (
-        uniform_id SERIAL PRIMARY KEY,
-        guild_id VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        role_id VARCHAR(255) NOT NULL,
-        price INT DEFAULT 0
-    );
-`;
-
-// Função que será chamada na inicialização do bot para sincronizar o schema.
-const syncDatabase = async () => {
-    try {
-        console.log('[DATABASE] Sincronizando schema com o banco de dados...');
-        await db.query(schemaSQL);
-        console.log('[DATABASE] Schema sincronizado com sucesso.');
-    } catch (error) {
-        console.error('[DATABASE] ERRO FATAL ao sincronizar schema:', error);
-        // Em caso de erro na DB, o bot não deve continuar.
-        process.exit(1);
+// Definição centralizada das colunas para facilitar a migração
+const tableDefinitions = {
+    guild_settings: {
+        guild_id: 'BIGINT PRIMARY KEY',
+        registration_channel_id: 'BIGINT',
+        registration_staff_role_id: 'BIGINT',
+        registration_log_channel_id: 'BIGINT',
+        registration_approved_role_id: 'BIGINT',
+        registration_panel_image_url: 'TEXT',
+        absence_channel_id: 'BIGINT',
+        absence_staff_role_id: 'BIGINT',
+        absence_log_channel_id: 'BIGINT',
+        absence_panel_image_url: 'TEXT',
+        ticket_category_id: 'BIGINT',
+        ticket_staff_role_id: 'BIGINT',
+        ticket_log_channel_id: 'BIGINT',
+        ticket_panel_image_url: 'TEXT',
+        ponto_channel_id: 'BIGINT',
+        ponto_staff_role_id: 'BIGINT',
+        ponto_log_channel_id: 'BIGINT',
+        ponto_role_id: 'BIGINT',
+        ponto_monitor_channel_id: 'BIGINT',
+        ponto_monitor_message_id: 'BIGINT',
+        ponto_panel_image_url: 'TEXT',
+        uniformes_channel_id: 'BIGINT',
+        uniformes_log_channel_id: 'BIGINT',
+        uniformes_staff_role_id: 'BIGINT',
+        uniformes_panel_image_url: 'TEXT'
+    },
+    registrations: {
+        id: 'SERIAL PRIMARY KEY',
+        guild_id: 'BIGINT NOT NULL',
+        user_id: 'BIGINT NOT NULL',
+        status: "TEXT DEFAULT 'pending'", // pending, approved, denied
+        submission_data: 'JSONB',
+        created_at: "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+        handled_by: 'BIGINT'
+    },
+    absences: {
+        id: 'SERIAL PRIMARY KEY',
+        guild_id: 'BIGINT NOT NULL',
+        user_id: 'BIGINT NOT NULL',
+        status: "TEXT DEFAULT 'pending'", // pending, approved, denied
+        reason: 'TEXT',
+        start_date: 'DATE',
+        end_date: 'DATE',
+        created_at: "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+        handled_by: 'BIGINT'
+    },
+    tickets: {
+        id: 'SERIAL PRIMARY KEY',
+        guild_id: 'BIGINT NOT NULL',
+        user_id: 'BIGINT NOT NULL',
+        channel_id: 'BIGINT',
+        status: "TEXT DEFAULT 'open'", // open, closed
+        created_at: "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP",
+        closed_by: 'BIGINT'
+    },
+    ponto_records: {
+        id: 'SERIAL PRIMARY KEY',
+        guild_id: 'BIGINT NOT NULL',
+        user_id: 'BIGINT NOT NULL',
+        clock_in_time: 'TIMESTAMP WITH TIME ZONE',
+        clock_out_time: 'TIMESTAMP WITH TIME ZONE',
+        total_duration_minutes: 'INTEGER'
+    },
+    vestuario_items: {
+        id: 'SERIAL PRIMARY KEY',
+        guild_id: 'BIGINT NOT NULL',
+        name: 'TEXT NOT NULL',
+        item_codes: 'TEXT[]',
+        image_url: 'TEXT'
     }
 };
 
-module.exports = { syncDatabase };
+async function checkAndAlterTables() {
+    for (const tableName in tableDefinitions) {
+        const columns = tableDefinitions[tableName];
+        for (const columnName in columns) {
+            try {
+                // Verifica se a coluna existe
+                const res = await db.query(
+                    `SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2`,
+                    [tableName, columnName]
+                );
+                if (res.rowCount === 0) {
+                    // Adiciona a coluna se não existir
+                    const columnDefinition = columns[columnName];
+                    console.log(`[DB Migration] Adicionando coluna '${columnName}' à tabela '${tableName}'...`);
+                    await db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+                }
+            } catch (err) {
+                // Um erro aqui provavelmente significa que a tabela não existe ainda, o que é normal.
+            }
+        }
+    }
+}
+
+async function initializeDatabase() {
+    const createQueries = [
+        `CREATE TABLE IF NOT EXISTS guild_settings (${Object.entries(tableDefinitions.guild_settings).map(([col, def]) => `${col} ${def}`).join(', ')})`,
+        `CREATE TABLE IF NOT EXISTS registrations (${Object.entries(tableDefinitions.registrations).map(([col, def]) => `${col} ${def}`).join(', ')})`,
+        `CREATE TABLE IF NOT EXISTS absences (${Object.entries(tableDefinitions.absences).map(([col, def]) => `${col} ${def}`).join(', ')})`,
+        `CREATE TABLE IF NOT EXISTS tickets (${Object.entries(tableDefinitions.tickets).map(([col, def]) => `${col} ${def}`).join(', ')})`,
+        `CREATE TABLE IF NOT EXISTS ponto_records (${Object.entries(tableDefinitions.ponto_records).map(([col, def]) => `${col} ${def}`).join(', ')})`,
+        `CREATE TABLE IF NOT EXISTS vestuario_items (${Object.entries(tableDefinitions.vestuario_items).map(([col, def]) => `${col} ${def}`).join(', ')})`
+    ];
+
+    for (const query of createQueries) {
+        await db.run(query);
+    }
+    
+    console.log('[DB Migration] Verificando integridade das tabelas...');
+    await checkAndAlterTables();
+    console.log('[DB Migration] Verificação concluída.');
+}
+
+module.exports = { initializeDatabase };
