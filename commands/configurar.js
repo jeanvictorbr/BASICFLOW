@@ -1,7 +1,7 @@
-const { 
-    SlashCommandBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
+const {
+    SlashCommandBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
     ButtonStyle,
     // --- NOVOS COMPONENTES NECESSÁRIOS ---
     SectionBuilder,
@@ -29,7 +29,8 @@ module.exports = {
 
         // Seção 1: Canal de Aprovação
         const channelSection = new SectionBuilder()
-            .addComponents(
+            // CORREÇÃO AQUI: Trocado .addComponents por .setComponents
+            .setComponents(
                 new TextDisplayBuilder()
                     .setContent(`** Canal de Aprovação Atual**\nConfigure qual será o canal onde serão enviadas as solicitações.\n> ${serverConfig.approvalChannel}`)
             )
@@ -42,7 +43,8 @@ module.exports = {
 
         // Seção 2: Cargo de Aprovador
         const approverRoleSection = new SectionBuilder()
-            .addComponents(
+            // CORREÇÃO AQUI: Trocado .addComponents por .setComponents
+            .setComponents(
                 new TextDisplayBuilder()
                     .setContent(`** Cargo de Aprovador Atual**\nConfigure qual será o cargo responsável por aprovar as solicitações.\n> ${serverConfig.approverRole}`)
             )
@@ -52,8 +54,6 @@ module.exports = {
                     .setLabel('Editar')
                     .setStyle(ButtonStyle.Primary)
             );
-        
-        // Adicione mais seções aqui para as outras configurações, se desejar...
 
 
         // Botões de ação principais (Ativar, Publicar, Voltar)
@@ -75,13 +75,12 @@ module.exports = {
 
         // Enviamos a resposta com os componentes e a FLAG necessária
         await interaction.reply({
-            // `content` e `embeds` não são usados aqui!
             components: [
-                channelSection,       // Nossa primeira seção com botão ao lado
-                approverRoleSection,  // Nossa segunda seção com botão ao lado
-                mainActionRow         // A linha com os botões de ação
+                channelSection,
+                approverRoleSection,
+                mainActionRow
             ],
-            flags: [MessageFlags.IsComponentsV2], // A FLAG MÁGICA QUE ATIVA A NOVA API!
+            flags: [MessageFlags.IsComponentsV2],
             ephemeral: true
         });
     },
