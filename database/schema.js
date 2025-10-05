@@ -1,4 +1,4 @@
-// Ficheiro: database/schema.js (VERSÃO FINAL E CORRIGIDA)
+// Ficheiro: database/schema.js (VERSÃO COM SISTEMA DE PONTO)
 const db = require('../database/db.js');
 
 const createTablesSQL = `
@@ -62,16 +62,41 @@ const createTablesSQL = `
         codigos TEXT NOT NULL,
         UNIQUE(guild_id, nome)
     );
+
+    -- NOVAS TABELAS PARA O SISTEMA DE PONTO --
+    CREATE TABLE IF NOT EXISTS ponto_sessoes (
+        session_id SERIAL PRIMARY KEY,
+        guild_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        start_time BIGINT NOT NULL,
+        end_time BIGINT,
+        status VARCHAR(50) DEFAULT 'active', -- active, paused, completed
+        log_message_id VARCHAR(255)
+    );
+
+    CREATE TABLE IF NOT EXISTS ponto_pausas (
+        pause_id SERIAL PRIMARY KEY,
+        session_id INTEGER NOT NULL REFERENCES ponto_sessoes(session_id) ON DELETE CASCADE,
+        pause_time BIGINT NOT NULL,
+        resume_time BIGINT
+    );
 `;
 
 async function checkAndAlterTables() {
     const columnsToAdd = {
         'guild_settings': {
             'nickname_tag': 'VARCHAR(16)', 'registration_panel_image_url': 'TEXT', 'ticket_category_id': 'VARCHAR(255)',
-            'support_role_id': 'VARCHAR(255)', 'ticket_log_channel_id': 'VARCHAR(255)', 'absence_panel_image_url': 'TEXT', 'ticket_panel_image_url': 'TEXT'
+            'support_role_id': 'VARCHAR(255)', 'ticket_log_channel_id': 'VARCHAR(255)', 'absence_panel_image_url': 'TEXT', 'ticket_panel_image_url': 'TEXT',
+            // --- COLUNAS PARA O SISTEMA DE PONTO ---
+            'ponto_log_channel_id': 'VARCHAR(255)',
+            'ponto_role_id': 'VARCHAR(255)',
+            'ponto_nickname_prefix': 'VARCHAR(32)',
+            'ponto_required_voice_channels': 'TEXT[]',
+            'ponto_captcha_enabled': 'BOOLEAN DEFAULT FALSE',
+            'ponto_vitrine_channel_id': 'VARCHAR(255)',
+            'ponto_vitrine_message_id': 'VARCHAR(255)'
         },
         'tickets': { 'closed_by': 'VARCHAR(255)', 'close_reason': 'TEXT', 'claimed_by': 'VARCHAR(255)' },
-        // *** INÍCIO DA CORREÇÃO DEFINITIVA ***
         'registrations': {
             'guild_id': 'VARCHAR(255)', 'user_id': 'VARCHAR(255)', 'rp_name': 'TEXT', 'game_id': 'TEXT',
             'status': "VARCHAR(50) DEFAULT 'pending'", 'approver_id': 'VARCHAR(255)', 'timestamp': 'BIGINT'
@@ -80,7 +105,6 @@ async function checkAndAlterTables() {
             'guild_id': 'VARCHAR(255)', 'user_id': 'VARCHAR(255)', 'start_date': 'BIGINT', 'end_date': 'BIGINT',
             'reason': 'TEXT', 'status': "VARCHAR(50) DEFAULT 'pending'", 'approver_id': 'VARCHAR(255)', 'timestamp': 'BIGINT'
         }
-        // *** FIM DA CORREÇÃO DEFINITIVA ***
     };
 
     const addColumnIfNotExists = async (tableName, columns) => {
@@ -93,7 +117,7 @@ async function checkAndAlterTables() {
                     console.log(`[DATABASE] Coluna "${column}" adicionada com sucesso.`);
                 }
             } catch (err) {
-                if (err.code !== '42P01') { // Ignora erro "tabela não existe" que pode acontecer em setup inicial
+                if (err.code !== '42P01') {
                     console.error(`[DATABASE] Erro ao adicionar coluna "${column}" em "${tableName}":`, err.message);
                 }
             }

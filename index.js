@@ -4,6 +4,7 @@
 // Carrega as variáveis de ambiente (.env)
 require('dotenv-flow').config();
 
+
 // Módulos essenciais do Node.js
 const fs = require('node:fs');
 const path = require('node:path');
@@ -30,6 +31,44 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
     ],
 });
+
+// --- NOVO LISTENER PARA ESTADO DE VOZ ---
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    // Se o usuário não tinha canal antes (entrou) ou mudou de um canal para outro, não fazemos nada
+    if (!oldState.channelId || oldState.channelId === newState.channelId) return;
+
+    // O usuário saiu de um canal de voz (oldState.channelId existe mas newState.channelId não)
+    const guildId = oldState.guild.id;
+    const userId = oldState.member.id;
+
+    const settings = await db.get('SELECT ponto_required_voice_channels FROM guild_settings WHERE guild_id = $1', [guildId]);
+    
+    // Verifica se a funcionalidade está ativa e se o canal de onde ele saiu era um canal obrigatório
+    if (settings?.ponto_required_voice_channels?.length > 0 && settings.ponto_required_voice_channels.includes(oldState.channelId)) {
+        const session = await db.get('SELECT * FROM ponto_sessoes WHERE user_id = $1 AND guild_id = $2 AND status = $3', [userId, guildId, 'active']);
+        
+        // Se ele tinha uma sessão ativa...
+        if (session) {
+            console.log(`[PONTO] Usuário ${userId} saiu do canal de voz obrigatório. Pausando ponto.`);
+            
+            // Aqui, chamamos a lógica de pausa (que pode ser abstraída para uma função no ponto_handler.js para evitar repetição de código)
+            const now = Date.now();
+            await db.run('UPDATE ponto_sessoes SET status = $1 WHERE session_id = $2', ['paused', session.session_id]);
+            await db.run('INSERT INTO ponto_pausas (session_id, pause_time) VALUES ($1, $2)', [session.session_id, now]);
+
+            const action = `⏸️ **Pausa Automática (Saída de Voz):** <t:${Math.floor(now / 1000)}:R>`;
+            
+            // Simula uma "interaction" falsa para a função de log
+            const fakeInteraction = { guild: oldState.guild, guildId };
+            await updateLogMessage(fakeInteraction, session.log_message_id, action, 'Yellow', 'Sessão de Ponto em Pausa');
+
+            // Avise o usuário no privado
+            const user = await client.users.fetch(userId);
+            await user.send('⚠️ Seu ponto de serviço foi pausado automaticamente pois você saiu de um canal de voz obrigatório.').catch(() => {});
+        }
+    }
+});
+
 
 // Coleção para armazenar os comandos de barra (slash commands)
 client.commands = new Collection();
