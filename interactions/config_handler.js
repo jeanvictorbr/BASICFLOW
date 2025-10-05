@@ -9,7 +9,7 @@ const { getConfigDashboardPayload, getCategoryPayload } = require('../views/conf
 async function handleConfigCommand(interaction) {
     // Responde à interação com o painel principal
     const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
-    await interaction.reply({ ...payload, ephemeral: true });
+    await interaction.reply(payload);
 }
 
 // --- HANDLER DE NAVEGAÇÃO ENTRE MENUS ---
@@ -105,7 +105,6 @@ const handleSaveSetting = {
             );
 
             // Descobre em qual categoria o usuário estava para poder atualizar a tela correta.
-            // Esta é uma lógica simples, uma mais robusta poderia salvar o estado do usuário.
             let currentCategory = 'registration'; // Valor padrão
             if (settingKey.includes('absence')) currentCategory = 'absence';
             if (settingKey.includes('ticket')) currentCategory = 'ticket';
