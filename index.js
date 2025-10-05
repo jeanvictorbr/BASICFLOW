@@ -1,12 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-// Adicionado "Events" na importação
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const dotenv = require('dotenv-flow');
 const database = require('./database/schema');
 const interactionHandler = require('./interactions/handler');
 
-// Carrega as variáveis de ambiente
 dotenv.config();
 
 const client = new Client({
@@ -21,19 +19,23 @@ client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
+console.log('--- CARREGANDO SLASH COMMANDS ---');
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
     if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
+        // ✔️ NOVO LOG
+        console.log(`[+] Comando /${command.data.name} carregado.`);
     } else {
         console.log(`[AVISO] O comando em ${filePath} está faltando uma propriedade "data" ou "execute".`);
     }
 }
+console.log('------------------------------------');
 
-// ✔️ CORRIGIDO: Evento 'ready' trocado por 'Events.ClientReady'
-client.once(Events.ClientReady, async () => {
-    console.log(`[INFO] Logado como ${client.user.tag}`);
+
+client.once(Events.ClientReady, async (c) => {
+    console.log(`[INFO] Logado como ${c.user.tag}`);
     console.log('[INFO] Inicializando e verificando o banco de dados...');
     try {
         await database.initializeDatabase();
@@ -45,7 +47,7 @@ client.once(Events.ClientReady, async () => {
     console.log('[INFO] O bot está online e pronto para operar.');
 });
 
-client.on('interactionCreate', async interaction => {
+client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isChatInputCommand()) {
         const command = interaction.client.commands.get(interaction.commandName);
         if (!command) {
@@ -56,17 +58,10 @@ client.on('interactionCreate', async interaction => {
             await command.execute(interaction);
         } catch (error) {
             console.error(error);
-            const errorMessage = { content: 'Ocorreu um erro ao executar este comando!', ephemeral: true };
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp(errorMessage);
-            } else {
-                await interaction.reply(errorMessage);
-            }
         }
     } else {
         interactionHandler.execute(interaction);
     }
 });
 
-// Verifique seu arquivo .env! O erro TokenInvalid vem daqui.
 client.login(process.env.DISCORD_TOKEN);

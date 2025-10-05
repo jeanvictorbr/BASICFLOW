@@ -1,98 +1,108 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
-// Helper para formatar valores e indicar se estão configurados
+/**
+ * Helper para formatar o status de uma configuração para exibição.
+ * @param {*} value O valor vindo do banco de dados.
+ * @param {'channel'|'role'|'category'|'image'|'text'} type O tipo de valor.
+ * @returns {string} O valor formatado para exibição.
+ */
 const formatValue = (value, type) => {
-    if (!value) return '❌ Não definido';
-    if (type === 'channel') return `<#${value}>`;
-    if (type === 'role') return `<@&${value}>`;
-    return `✅ Definido`;
+    if (!value) return '❌ **Não definido**';
+    switch (type) {
+        case 'channel': return `✅ <#${value}>`;
+        case 'category': return `✅ <#${value}>`; // Categorias são canais
+        case 'role': return `✅ <@&${value}>`;
+        case 'image': return `✔️ [**Ver Imagem**](${value})`;
+        default: return `✅ **Definido**`;
+    }
 };
 
-// ===================================================================
-// 🎨 NOVO PAINEL PRINCIPAL
-// ===================================================================
-function getConfigDashboardPayload(settings) {
+/**
+ * Gera o painel de navegação principal.
+ */
+function getConfigDashboardPayload() {
     const embed = new EmbedBuilder()
-        .setColor('#0099ff')
+        .setColor('#5865F2')
         .setTitle('⚙️ Painel de Configurações do BasicFlow')
-        .setDescription('Selecione um módulo abaixo para visualizar e gerenciar suas configurações de forma intuitiva.');
+        .setDescription('Navegue pelos módulos abaixo para gerenciar o bot neste servidor.');
 
-    // Adiciona um campo para cada módulo, mostrando um status rápido
-    embed.addFields(
-        { name: '📝 Registros', value: 'Sistema de aprovação de novos membros.', inline: true },
-        { name: '🗓️ Ausências', value: 'Gerenciamento de períodos de ausência.', inline: true },
-        { name: '🎫 Tickets', value: 'Criação de canais de suporte privado.', inline: true },
-        { name: '⏰ Ponto', value: 'Registro de entrada e saída de serviço.', inline: true },
-        { name: '👕 Uniformes', value: 'Catálogo interativo de uniformes.', inline: true },
-        { name: 'Outros', value: 'Configurações gerais do bot.', inline: true },
+    const components = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config:menu:registration').setLabel('Registros').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
+        new ButtonBuilder().setCustomId('config:menu:absence').setLabel('Ausências').setStyle(ButtonStyle.Secondary).setEmoji('🗓️'),
+        new ButtonBuilder().setCustomId('config:menu:tickets').setLabel('Tickets').setStyle(ButtonStyle.Secondary).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('config:menu:ponto').setLabel('Ponto').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
+        new ButtonBuilder().setCustomId('config:menu:uniformes').setLabel('Uniformes').setStyle(ButtonStyle.Secondary).setEmoji('👕')
     );
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('config_menu:registration').setLabel('Registros').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
-        new ButtonBuilder().setCustomId('config_menu:absence').setLabel('Ausências').setStyle(ButtonStyle.Secondary).setEmoji('🗓️'),
-        new ButtonBuilder().setCustomId('config_menu:tickets').setLabel('Tickets').setStyle(ButtonStyle.Secondary).setEmoji('🎫'),
-        new ButtonBuilder().setCustomId('config_menu:ponto').setLabel('Ponto').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
-        new ButtonBuilder().setCustomId('config_menu:uniformes').setLabel('Uniformes').setStyle(ButtonStyle.Secondary).setEmoji('👕')
-    );
-
-    return { embeds: [embed], components: [row] };
+    return { embeds: [embed], components: [components] };
 }
 
-
-// ===================================================================
-// 🎨 NOVOS PAINÉIS DE CATEGORIA
-// ===================================================================
+/**
+ * Gera os painéis de configuração específicos de cada categoria, no estilo da imagem.
+ */
 function getCategoryConfigPayload(category, settings) {
-    const embed = new EmbedBuilder().setColor('#2ECC71');
+    const embed = new EmbedBuilder();
     const components = [];
 
+    // Botão de Voltar universal
+    const backButton = new ButtonBuilder().setCustomId('config:menu:main').setLabel('Voltar').setStyle(ButtonStyle.Secondary).setEmoji('⬅️');
+
     switch (category) {
-        case 'registration':
-            embed.setTitle('📝 Configurações de Registro');
-            embed.setDescription(
-                `**Canal de Logs:** ${formatValue(settings.registration_log_channel_id, 'channel')}\n` +
-                `**Cargo de Staff:** ${formatValue(settings.registration_staff_role_id, 'role')}\n` +
-                `**Cargo Aprovado:** ${formatValue(settings.registration_approved_role_id, 'role')}`
+        case 'tickets':
+            embed.setColor('#3498DB').setTitle('🎫 Configurações de Ticket');
+            embed.addFields(
+                { name: 'Categoria', value: formatValue(settings.ticket_category_id, 'category'), inline: false },
+                { name: 'Cargo de Suporte', value: formatValue(settings.ticket_staff_role_id, 'role'), inline: false },
+                { name: 'Canal de Logs', value: formatValue(settings.ticket_log_channel_id, 'channel'), inline: false },
+                { name: 'Imagem do Painel', value: formatValue(settings.ticket_panel_image_url, 'image'), inline: false },
             );
-            // Botões de ação para este módulo
-            const regButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('config_set:reg_log_channel').setLabel('Alterar Log').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('config_set:reg_approved_role').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary)
+            
+            // Botões de alteração
+            const ticketSetButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config:set:ticket_category_id').setLabel('Alterar Categoria').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config:set:ticket_staff_role_id').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config:set:ticket_log_channel_id').setLabel('Alterar Logs').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config:set:ticket_panel_image_url').setLabel('Alterar Imagem').setStyle(ButtonStyle.Primary),
             );
-            components.push(regButtons);
+            
+            // Botões de ação
+            const ticketActionButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config:publish:ticket').setLabel('Publicar Painel de Ticket').setStyle(ButtonStyle.Success),
+                backButton
+            );
+            
+            components.push(ticketSetButtons, ticketActionButtons);
             break;
 
-        // Adicionar outros casos aqui (absence, tickets, etc.)
+        // Adicione aqui outros painéis (registration, ponto, etc.) seguindo o mesmo modelo.
         // Exemplo para Ponto:
         case 'ponto':
-             embed.setTitle('⏰ Configurações de Ponto');
-             embed.setDescription(
-                `**Canal do Painel:** ${formatValue(settings.ponto_channel_id, 'channel')}\n` +
-                `**Cargo em Serviço:** ${formatValue(settings.ponto_role_id, 'role')}\n` +
-                `**Canal do Monitor:** ${formatValue(settings.ponto_monitor_channel_id, 'channel')}`
-             );
-             const pontoButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('config_set:ponto_role').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('config_set:ponto_monitor').setLabel('Alterar Monitor').setStyle(ButtonStyle.Primary)
+            embed.setColor('#E67E22').setTitle('⏰ Configurações de Ponto');
+            embed.addFields(
+                { name: 'Cargo em Serviço', value: formatValue(settings.ponto_role_id, 'role'), inline: false },
+                { name: 'Canal do Monitor', value: formatValue(settings.ponto_monitor_channel_id, 'channel'), inline: false },
+                // Adicione mais campos se necessário
             );
-            components.push(pontoButtons);
+
+            const pontoSetButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config:set:ponto_role_id').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config:set:ponto_monitor_channel_id').setLabel('Alterar Canal Monitor').setStyle(ButtonStyle.Primary),
+            );
+            
+            const pontoActionButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config:publish:ponto').setLabel('Publicar Painel de Ponto').setStyle(ButtonStyle.Success),
+                 backButton
+            );
+            components.push(pontoSetButtons, pontoActionButtons);
             break;
             
         default:
-            embed.setTitle('Módulo em Construção').setColor('#E67E22');
-            embed.setDescription(`As configurações para o módulo \`${category}\` ainda não foram implementadas.`);
+            embed.setColor('#E74C3C').setTitle('🚧 Módulo em Construção');
+            embed.setDescription(`A interface de configuração para \`${category}\` ainda não foi criada.`);
+            const backRow = new ActionRowBuilder().addComponents(backButton);
+            components.push(backRow);
     }
-
-    // Botão universal para voltar
-    const backButtonRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('config_menu:main')
-            .setLabel('⬅️ Voltar ao Início')
-            .setStyle(ButtonStyle.Secondary)
-    );
-    components.push(backButtonRow);
-
-    return { embeds: [embed], components };
+    
+    return { content: '', embeds: [embed], components };
 }
 
 module.exports = { getConfigDashboardPayload, getCategoryConfigPayload };
