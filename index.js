@@ -1,11 +1,11 @@
-// index.js
+// index.js (CORREÇÃO FINAL)
 
 require('dotenv-flow').config();
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { handleInteraction } = require('./interactions/handler');
-const absenceChecker = require('./tasks/absence_checker');
+const absenceChecker = require('./tasks/absence_checker'); // Este import está correto
 
 const client = new Client({
     intents: [
@@ -37,7 +37,10 @@ console.log('[INFO] Todos os comandos foram carregados com sucesso.');
 
 client.once('ready', () => {
     console.log(`[INFO] Bot ${client.user.tag} está online e operacional!`);
-    absenceChecker(client);
+    
+    // AQUI ESTÁ A CORREÇÃO
+    // Chamamos a função 'initialize' de dentro do módulo importado.
+    absenceChecker.initialize(client);
 });
 
 client.on('interactionCreate', async interaction => {
