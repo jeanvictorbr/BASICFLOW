@@ -1,133 +1,94 @@
-// Ficheiro: interactions/config_handler.js (VERSÃO FINAL E COMPLETA)
+// interactions/config_handler.js
 
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-// CORREÇÃO: Caminhos corretos para a base de dados e as views
-const db = require('../database/db.js');
-const { getConfigDashboardPayload, getCategoryPayload } = require('../views/config_views.js');
+const guildConfig = require('../database/schema');
 
-// --- FUNÇÃO PRINCIPAL (CHAMADA PELO COMANDO) ---
-async function handleConfigCommand(interaction) {
-    // Responde à interação com o painel principal
-    const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
-    await interaction.reply(payload);
+/**
+ * Cria um modal genérico para configuração de IDs.
+ * @param {string} modalId - ID customizado para o modal.
+ * @param {string} title - Título do modal.
+ * @param {string} inputId - ID do campo de texto.
+ * @param {string} inputLabel - Label do campo de texto.
+ * @param {string} inputPlaceholder - Placeholder do campo de texto.
+ * @returns {ModalBuilder}
+ */
+function createConfigModal(modalId, title, inputId, inputLabel, inputPlaceholder) {
+    return new ModalBuilder()
+        .setCustomId(modalId)
+        .setTitle(title)
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId(inputId)
+                    .setLabel(inputLabel)
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder(inputPlaceholder)
+                    .setRequired(true)
+            )
+        );
 }
 
-// --- HANDLER DE NAVEGAÇÃO ENTRE MENUS ---
-const handleMenuNavigation = {
-    customId: (customId) => customId.startsWith('config_menu:'),
-    async execute(interaction) {
-        // Extrai a categoria do customId (ex: 'registration', 'ponto', 'main')
-        const category = interaction.customId.split(':')[1];
-
-        // Se for para voltar ao menu principal
-        if (category === 'main') {
-            const payload = await getConfigDashboardPayload(interaction.guild, interaction.user.id);
-            return interaction.update(payload); // 'update' edita a mensagem existente
-        }
-
-        // Se for para uma categoria específica
-        const payload = await getCategoryPayload(interaction.guild, category);
-        await interaction.update(payload);
-    }
+// Mapa de configuração para os modais
+const modalConfigs = {
+    // Tickets
+    'config_ticket_categoria': { id: 'modal_ticket_cat', title: 'Configurar Categoria de Tickets', inputId: 'id', label: 'ID da Categoria', placeholder: 'Cole o ID da categoria aqui' },
+    'config_ticket_cargo': { id: 'modal_ticket_role', title: 'Configurar Cargo de Suporte', inputId: 'id', label: 'ID do Cargo', placeholder: 'Cole o ID do cargo aqui' },
+    'config_ticket_logs': { id: 'modal_ticket_logs', title: 'Configurar Canal de Logs', inputId: 'id', label: 'ID do Canal', placeholder: 'Cole o ID do canal de texto aqui' },
+    // Ponto
+    'config_ponto_canal': { id: 'modal_ponto_chan', title: 'Configurar Canal de Ponto', inputId: 'id', label: 'ID do Canal', placeholder: 'Cole o ID do canal de texto aqui' },
+    'config_ponto_cargo': { id: 'modal_ponto_role', title: 'Configurar Cargo de Ponto', inputId: 'id', label: 'ID do Cargo', placeholder: 'Cole o ID do cargo aqui' },
+    // Ausência
+    'config_ausencia_canal': { id: 'modal_absence_chan', title: 'Configurar Canal de Ausência', inputId: 'id', label: 'ID do Canal', placeholder: 'Cole o ID do canal de texto aqui' },
+    'config_ausencia_logs': { id: 'modal_absence_logs', title: 'Configurar Logs de Ausência', inputId: 'id', label: 'ID do Canal de Logs', placeholder: 'Cole o ID do canal de texto aqui' },
+    'config_ausencia_cargo': { id: 'modal_absence_role', title: 'Configurar Cargo de Ausência', inputId: 'id', label: 'ID do Cargo', placeholder: 'Cole o ID do cargo aqui' },
+    // Registro
+    'config_registro_canal': { id: 'modal_reg_chan', title: 'Configurar Canal de Registro', inputId: 'id', label: 'ID do Canal', placeholder: 'Cole o ID do canal de texto aqui' },
+    'config_registro_logs': { id: 'modal_reg_logs', title: 'Configurar Logs de Registro', inputId: 'id', label: 'ID do Canal de Logs', placeholder: 'Cole o ID do canal de texto aqui' },
+    'config_registro_cargo': { id: 'modal_reg_role', title: 'Configurar Cargo de Membro', inputId: 'id', label: 'ID do Cargo', placeholder: 'Cole o ID do cargo aqui' },
 };
 
-// --- HANDLER PARA ABRIR MODAIS DE CONFIGURAÇÃO ---
-
-// Mapeamento para evitar um switch-case gigante
-const modalMappings = {
-    // REGISTO
-    'config_set_registration_channel': { dbKey: 'registration_channel_id', label: 'Canal de Logs de Registo' },
-    'config_set_registered_role': { dbKey: 'registered_role_id', label: 'Cargo de Membro' },
-    'config_set_nickname_tag': { dbKey: 'nickname_tag', label: 'TAG de Nickname' },
-    'config_set_panel_image': { dbKey: 'registration_panel_image_url', label: 'URL da Imagem do Painel' },
-    // AUSÊNCIA
-    'config_set_absence_channel': { dbKey: 'absence_channel_id', label: 'Canal de Logs de Ausência' },
-    'config_set_absence_role': { dbKey: 'absence_role_id', label: 'Cargo de Ausente' },
-    'config_set_absence_image': { dbKey: 'absence_panel_image_url', label: 'URL da Imagem do Painel' },
-    // TICKET
-    'config_set_ticket_category': { dbKey: 'ticket_category_id', label: 'Categoria de Tickets' },
-    'config_set_support_role': { dbKey: 'support_role_id', label: 'Cargo de Suporte' },
-    'config_set_ticket_log_channel': { dbKey: 'ticket_log_channel_id', label: 'Canal de Logs de Ticket' },
-    'config_set_ticket_image': { dbKey: 'ticket_panel_image_url', label: 'URL da Imagem do Painel' },
-    // BATE-PONTO (NOVO)
-    'config_set_ponto_vitrine_channel': { dbKey: 'ponto_vitrine_channel_id', label: 'Canal da Vitrine' },
-    'config_set_ponto_log_channel': { dbKey: 'ponto_log_channel_id', label: 'Canal de Logs' },
-    'config_set_ponto_role': { dbKey: 'ponto_role_id', label: 'Cargo "Em Serviço"' },
-    'config_set_ponto_category': { dbKey: 'ponto_temp_category_id', label: 'Categoria dos Canais' },
-    'config_set_ponto_nickname': { dbKey: 'ponto_nickname_prefix', label: 'Prefixo de Nickname' },
+// Mapa de ações para salvar os dados dos modais
+const modalSaveActions = {
+    'modal_ticket_cat': { dbField: 'ticketConfig.categoryId', successMsg: (id) => `✅ Categoria de tickets definida para <#${id}>.` },
+    'modal_ticket_role': { dbField: 'ticketConfig.supportRoleId', successMsg: (id) => `✅ Cargo de suporte definido para <@&${id}>.` },
+    'modal_ticket_logs': { dbField: 'ticketConfig.logsChannelId', successMsg: (id) => `✅ Canal de logs de tickets definido para <#${id}>.` },
+    'modal_ponto_chan': { dbField: 'pontoConfig.pontoChannelId', successMsg: (id) => `✅ Canal de ponto definido para <#${id}>.` },
+    'modal_ponto_role': { dbField: 'pontoConfig.pontoRoleId', successMsg: (id) => `✅ Cargo de ponto definido para <@&${id}>.` },
+    'modal_absence_chan': { dbField: 'absenceConfig.absenceChannelId', successMsg: (id) => `✅ Canal de ausência definido para <#${id}>.` },
+    'modal_absence_logs': { dbField: 'absenceConfig.absenceLogChannelId', successMsg: (id) => `✅ Canal de logs de ausência definido para <#${id}>.` },
+    'modal_absence_role': { dbField: 'absenceConfig.absenceRoleId', successMsg: (id) => `✅ Cargo de ausência definido para <@&${id}>.` },
+    'modal_reg_chan': { dbField: 'registrationConfig.registrationChannelId', successMsg: (id) => `✅ Canal de registro definido para <#${id}>.` },
+    'modal_reg_logs': { dbField: 'registrationConfig.registrationLogChannelId', successMsg: (id) => `✅ Canal de logs de registro definido para <#${id}>.` },
+    'modal_reg_role': { dbField: 'registrationConfig.memberRoleId', successMsg: (id) => `✅ Cargo de membro definido para <@&${id}>.` },
 };
 
-const handleOpenModal = {
-    customId: (customId) => customId.startsWith('config_set_'),
-    async execute(interaction) {
-        const mapping = modalMappings[interaction.customId];
-        if (!mapping) return;
-
-        const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
-
-        const modal = new ModalBuilder()
-            .setCustomId(`config_save:${mapping.dbKey}`) // Passa a chave do DB para o handler de salvar
-            .setTitle(`Alterar ${mapping.label}`);
-
-        const input = new TextInputBuilder()
-            .setCustomId('setting_value')
-            .setLabel(`Novo valor para ${mapping.label}`)
-            .setStyle(TextInputStyle.Short)
-            .setValue(settings?.[mapping.dbKey] || '')
-            .setRequired(false)
-            .setPlaceholder('Deixe em branco para remover.');
-        
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
+async function handleConfigButton(interaction) {
+    const config = modalConfigs[interaction.customId];
+    if (config) {
+        const modal = createConfigModal(config.id, config.title, config.inputId, config.label, config.placeholder);
         await interaction.showModal(modal);
     }
-};
+}
 
-// --- HANDLER PARA SALVAR OS DADOS DO MODAL ---
+async function handleConfigModal(interaction) {
+    const action = modalSaveActions[interaction.customId];
+    if (!action) return;
 
-const handleSaveSetting = {
-    customId: (customId) => customId.startsWith('config_save:'),
-    async execute(interaction) {
-        // Adia a atualização para dar tempo de processar
-        await interaction.deferUpdate();
+    try {
+        await interaction.deferReply({ ephemeral: true });
+        const id = interaction.fields.getTextInputValue('id');
 
-        const settingKey = interaction.customId.split(':')[1];
-        let value = interaction.fields.getTextInputValue('setting_value');
-        
-        if (!value || value.trim() === '') {
-            value = null;
-        }
+        await guildConfig.findOneAndUpdate(
+            { guildId: interaction.guild.id },
+            { $set: { [action.dbField]: id } },
+            { upsert: true, new: true }
+        );
 
-        try {
-            await db.run(
-                `INSERT INTO guild_settings (guild_id, ${settingKey}) VALUES ($1, $2)
-                 ON CONFLICT (guild_id) DO UPDATE SET ${settingKey} = $2`,
-                [interaction.guildId, value]
-            );
-
-            // Descobre em qual categoria o usuário estava para poder atualizar a tela correta.
-            let currentCategory = 'registration'; // Valor padrão
-            if (settingKey.includes('absence')) currentCategory = 'absence';
-            if (settingKey.includes('ticket')) currentCategory = 'ticket';
-            if (settingKey.includes('ponto')) currentCategory = 'ponto';
-            
-            const payload = await getCategoryPayload(interaction.guild, currentCategory);
-            await interaction.editReply(payload);
-            
-        } catch (error) {
-            console.error('Erro ao salvar configuração:', error);
-            // Se a interação já foi editada, usamos followUp
-            await interaction.followUp({ content: '❌ Ocorreu um erro ao salvar esta configuração.', ephemeral: true }).catch(() => {});
-        }
+        await interaction.editReply({ content: action.successMsg(id) });
+    } catch (error) {
+        console.error('Erro ao salvar configuração via modal:', error);
+        await interaction.editReply({ content: '❌ Ocorreu um erro ao salvar a configuração.' });
     }
-};
+}
 
-
-// Exporta a função principal para o comando e a lista de handlers de interação para o handler.js principal
-module.exports = {
-    handleConfigCommand,
-    handlers: [
-        handleMenuNavigation,
-        handleOpenModal,
-        handleSaveSetting
-    ]
-};
+module.exports = { handleConfigButton, handleConfigModal };

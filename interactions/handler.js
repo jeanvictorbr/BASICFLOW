@@ -1,65 +1,100 @@
-// Ficheiro: interactions/handler.js
+// interactions/handler.js
 
-const fs = require('node:fs');
-const path = require('node:path');
+// Seus imports existentes
+const { handleTicketButton, handleTicketModal } = require('./ticket_handler');
+const { handleAbsenceButton, handleAbsenceModal } = require('./absence_handler');
+const { handleApprovalButton } = require('./approval_handler');
+const { handleAbsenceApproval } = require('./absence_approval_handler');
+const { handleRegistrationModal, handleRegistrationButton } = require('./registration_handler');
+const { handlePontoButton } = require('./ponto_handler');
+const { handleDevPanelButton, handleDevPanelModal } = require('./dev_panel_handler');
+const { handleUniformesModal, handleUniformesButton } = require('./uniformes_handler');
 
-const handlers = [];
+// Novos imports para o sistema de configuração
+const { 
+    showMainMenu, 
+    showTicketDashboard, 
+    showPontoDashboard, 
+    showAbsenceDashboard, 
+    showRegistrationDashboard 
+} = require('../views/config_views');
+const { handleConfigButton, handleConfigModal } = require('./config_handler');
 
-// Função para carregar todos os handlers de interação
-function loadHandlers() {
-    // Limpa handlers antigos para recarregar
-    handlers.length = 0;
+async function handleInteraction(interaction) {
+    // Handler para Comandos de Barra (/)
+    if (interaction.isChatInputCommand()) {
+        const command = interaction.client.commands.get(interaction.commandName);
+        if (!command) return;
 
-    const handlerFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('_handler.js'));
-
-    for (const file of handlerFiles) {
         try {
-            const filePath = path.join(__dirname, file);
-            const handlerModule = require(filePath);
-            
-            // Se o módulo exporta uma lista de handlers (como o config_handler.js agora faz)
-            if (Array.isArray(handlerModule.handlers)) {
-                handlers.push(...handlerModule.handlers);
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(error);
+            await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+        }
+    }
+    
+    // Handler para Cliques em Botões
+    else if (interaction.isButton()) {
+        const customId = interaction.customId;
+
+        // --- ROTEADOR DO PAINEL DE CONFIGURAÇÃO ---
+        if (customId.startsWith('config_')) {
+            // Navegação entre os menus
+            if (customId.startsWith('config_menu_')) {
+                switch (customId) {
+                    case 'config_menu_main':
+                        await showMainMenu(interaction, true); // true para indicar que é um update
+                        break;
+                    case 'config_menu_ticket':
+                        await showTicketDashboard(interaction);
+                        break;
+                    case 'config_menu_ponto':
+                        await showPontoDashboard(interaction);
+                        break;
+                    case 'config_menu_ausencia':
+                        await showAbsenceDashboard(interaction);
+                        break;
+                    case 'config_menu_registro':
+                        await showRegistrationDashboard(interaction);
+                        break;
+                }
             } 
-            // Se o módulo exporta um array diretamente (como os seus ficheiros antigos provavelmente fazem)
-            else if (Array.isArray(handlerModule)) {
-                handlers.push(...handlerModule);
-            } 
-            // Se exporta um único objeto handler
+            // Botões "Alterar" dentro dos dashboards
             else {
-                handlers.push(handlerModule);
+                await handleConfigButton(interaction);
             }
-            console.log(`[INFO] Handler Carregado: ${file}`);
-        } catch (error) {
-            console.error(`[ERRO] Falha ao carregar o handler ${file}:`, error);
+            return; // Impede que outros handlers sejam executados
         }
+
+        // --- SEUS OUTROS HANDLERS DE BOTÕES ---
+        if (customId.startsWith('ticket_')) await handleTicketButton(interaction);
+        else if (customId.startsWith('absence_')) await handleAbsenceButton(interaction);
+        else if (customId.startsWith('approve_') || customId.startsWith('reject_')) await handleApprovalButton(interaction);
+        else if (customId.startsWith('absence-approve_') || customId.startsWith('absence-reject_')) await handleAbsenceApproval(interaction);
+        else if (customId.startsWith('registration_')) await handleRegistrationButton(interaction);
+        else if (customId.startsWith('ponto_')) await handlePontoButton(interaction);
+        else if (customId.startsWith('dev_')) await handleDevPanelButton(interaction);
+        else if (customId.startsWith('uniformes_')) await handleUniformesButton(interaction);
+    }
+    
+    // Handler para Submissão de Modals (Janelas)
+    else if (interaction.isModalSubmit()) {
+        const customId = interaction.customId;
+
+        // --- ROTEADOR DOS MODAIS DE CONFIGURAÇÃO ---
+        if (customId.startsWith('modal_')) {
+            await handleConfigModal(interaction);
+            return; // Impede que outros handlers sejam executados
+        }
+
+        // --- SEUS OUTROS HANDLERS DE MODAIS ---
+        if (customId.startsWith('ticket_')) await handleTicketModal(interaction);
+        else if (customId.startsWith('absence_')) await handleAbsenceModal(interaction);
+        else if (customId.startsWith('registration_')) await handleRegistrationModal(interaction);
+        else if (customId.startsWith('dev_')) await handleDevPanelModal(interaction);
+        else if (customId.startsWith('uniformes_')) await handleUniformesModal(interaction);
     }
 }
 
-// Função para executar a interação
-async function execute(interaction) {
-    // Encontra o handler correspondente
-    const handler = handlers.find(h => {
-        // Se o customId for uma função (para os handlers dinâmicos como 'config_menu:')
-        if (typeof h.customId === 'function') {
-            return h.customId(interaction.customId);
-        }
-        // Se for uma string simples
-        return h.customId === interaction.customId;
-    });
-
-    if (handler) {
-        try {
-            await handler.execute(interaction);
-        } catch (error) {
-            console.error('Erro ao executar interação:', error);
-            if (interaction.deferred || interaction.replied) {
-                await interaction.followUp({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
-            } else {
-                await interaction.reply({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
-            }
-        }
-    }
-}
-
-module.exports = { loadHandlers, execute };
+module.exports = { handleInteraction };

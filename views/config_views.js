@@ -1,159 +1,176 @@
-// Ficheiro: views/config_views.js (VERSÃO FINAL COM INTERFACE V2 CORRIGIDA E FUNCIONAL)
+// views/config_views.js
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const db = require('../database/db.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const guildConfig = require('../database/schema');
 
-// Helper para formatar o status de uma configuração
-const formatStatus = (settings, key, type) => {
-    const id = settings?.[key];
-    if (!id) return '❌ `Não definido`';
-    switch (type) {
-        case 'channel':
-            return `✅ <#${id}>`;
-        case 'role':
-            return `✅ <@&${id}>`;
-        case 'tag':
-            return `✅ \`[${id}]\``;
-        case 'image':
-            return `✅ [Imagem Definida](${id})`;
-        default:
-            return `✅ \`${id}\``;
-    }
+// Função para formatar o ID do canal ou cargo para exibição
+const formatId = (id, type = 'channel') => {
+    if (!id) return '`Não definido`';
+    return type === 'channel' ? `<#${id}>` : `<@&${id}>`;
 };
 
-// --- FUNÇÃO PRINCIPAL: Gera a TELA PRINCIPAL com as categorias ---
-async function getConfigDashboardPayload(guild, userId) {
-    const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle('⚙️ Painel de Configuração')
-        .setDescription('Selecione uma categoria abaixo para gerir as suas configurações.');
-        
-    const rows = [
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('config_menu:registration').setLabel('📝 Registos').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('config_menu:absence').setLabel('🏝️ Ausências').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('config_menu:ticket').setLabel('🎫 Tickets').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('config_menu:ponto').setLabel('🕒 Bate-Ponto').setStyle(ButtonStyle.Secondary),
-        ),
-    ];
-    
-    if (userId === process.env.OWNER_ID) {
-        rows.push(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('dev_panel').setLabel('🔒 Painel do Dono').setStyle(ButtonStyle.Danger)
-            )
+/**
+ * Mostra o menu principal de configurações.
+ * @param {import('discord.js').Interaction} interaction
+ * @param {boolean} isUpdate - Se a interação é uma atualização de uma mensagem existente.
+ */
+async function showMainMenu(interaction, isUpdate = false) {
+    const mainEmbed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('🛠️ Painel de Controle Principal')
+        .setDescription('Selecione abaixo o módulo que você deseja configurar.')
+        .setImage('https://i.imgur.com/8Qp6g4M.png')
+        .setTimestamp()
+        .setFooter({ text: `Sistema de Configuração Interativo` });
+
+    const row = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder().setCustomId('config_menu_ticket').setLabel('Tickets').setStyle(ButtonStyle.Secondary).setEmoji('🎫'),
+            new ButtonBuilder().setCustomId('config_menu_ponto').setLabel('Ponto').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
+            new ButtonBuilder().setCustomId('config_menu_ausencia').setLabel('Ausência').setStyle(ButtonStyle.Secondary).setEmoji('🛌'),
+            new ButtonBuilder().setCustomId('config_menu_registro').setLabel('Registro').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
         );
-    }
-    
-    return { embeds: [embed], components: rows, ephemeral: true };
-}
 
-
-// --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria (ESTILO V2 - A MELHOR VERSÃO POSSÍVEL) ---
-async function getCategoryPayload(guild, category) {
-    // CORREÇÃO da query SQL que estava a causar o erro anterior
-    const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
-    
-    const embed = new EmbedBuilder()
-        .setColor('#2c9e8d')
-        .setTimestamp();
-        
-    const components = [];
-
-    const categoryMappings = {
-        registration: {
-            title: '📝 Configurações de Registo',
-            settings: [
-                { label: 'Canal de Logs', key: 'registration_channel_id', type: 'channel', buttonId: 'config_set_registration_channel' },
-                { label: 'Cargo de Membro', key: 'registered_role_id', type: 'role', buttonId: 'config_set_registered_role' },
-                { label: 'TAG de Nickname', key: 'nickname_tag', type: 'tag', buttonId: 'config_set_nickname_tag' },
-                { label: 'Imagem do Painel', key: 'registration_panel_image_url', type: 'image', buttonId: 'config_set_panel_image' },
-            ]
-        },
-        absence: {
-            title: '🏝️ Configurações de Ausência',
-            settings: [
-                { label: 'Canal de Logs', key: 'absence_channel_id', type: 'channel', buttonId: 'config_set_absence_channel' },
-                { label: 'Cargo de Ausente', key: 'absence_role_id', type: 'role', buttonId: 'config_set_absence_role' },
-                { label: 'Imagem do Painel', key: 'absence_panel_image_url', type: 'image', buttonId: 'config_set_absence_image' },
-            ]
-        },
-        ticket: {
-            title: '🎫 Configurações de Ticket',
-            settings: [
-                { label: 'Categoria', key: 'ticket_category_id', type: 'channel', buttonId: 'config_set_ticket_category' },
-                { label: 'Cargo de Suporte', key: 'support_role_id', type: 'role', buttonId: 'config_set_support_role' },
-                { label: 'Canal de Logs', key: 'ticket_log_channel_id', type: 'channel', buttonId: 'config_set_ticket_log_channel' },
-                { label: 'Imagem do Painel', key: 'ticket_panel_image_url', type: 'image', buttonId: 'config_set_ticket_image' },
-            ]
-        },
-        ponto: {
-            title: '🕒 Configurações de Bate-Ponto',
-            settings: [
-                { label: 'Canal da Vitrine', key: 'ponto_vitrine_channel_id', type: 'channel', buttonId: 'config_set_ponto_vitrine_channel' },
-                { label: 'Canal de Logs', key: 'ponto_log_channel_id', type: 'channel', buttonId: 'config_set_ponto_log_channel' },
-                { label: 'Cargo "Em Serviço"', key: 'ponto_role_id', type: 'role', buttonId: 'config_set_ponto_role' },
-                { label: 'Categoria dos Canais', key: 'ponto_temp_category_id', type: 'channel', buttonId: 'config_set_ponto_category' },
-                { label: 'Prefixo de Nickname', key: 'ponto_nickname_prefix', type: 'tag', buttonId: 'config_set_ponto_nickname' },
-            ]
-        }
+    const payload = {
+        embeds: [mainEmbed],
+        components: [row],
+        ephemeral: true,
     };
 
-    const currentCategory = categoryMappings[category];
-
-    if (currentCategory) {
-        embed.setTitle(currentCategory.title);
-        
-        const fields = [];
-        let buttonRow = new ActionRowBuilder();
-
-        currentCategory.settings.forEach(setting => {
-            // Adiciona a informação como um campo "inline" para criar a aparência de colunas
-            fields.push({
-                name: `**${setting.label}**`,
-                value: formatStatus(settings, setting.key, setting.type),
-                inline: true
-            });
-
-            // Adiciona um botão para cada configuração
-            buttonRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(setting.buttonId)
-                    .setLabel(`Alterar ${setting.label}`)
-                    .setStyle(ButtonStyle.Primary)
-            );
-
-            // O Discord só permite 5 botões por linha. Se atingir o limite, cria uma nova linha.
-            if (buttonRow.components.length === 5) {
-                components.push(buttonRow);
-                buttonRow = new ActionRowBuilder();
-            }
-        });
-        
-        // Adiciona a linha de botões se ela tiver algum botão sobrando
-        if (buttonRow.components.length > 0) {
-            components.push(buttonRow);
-        }
-        
-        // Adiciona campos em branco para alinhar a grade de 3 colunas perfeitamente
-        while (fields.length % 3 !== 0) {
-            fields.push({ name: '\u200B', value: '\u200B', inline: true });
-        }
-
-        embed.setFields(fields);
+    if (isUpdate) {
+        await interaction.update(payload);
+    } else {
+        await interaction.reply(payload);
     }
-    
-    // Adiciona o botão de Voltar no final
-    components.push(
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('config_menu:main').setLabel('⬅️ Voltar').setStyle(ButtonStyle.Secondary)
-        )
-    );
-
-    return { embeds: [embed], components, ephemeral: true };
 }
 
-module.exports = { 
-    getConfigDashboardPayload,
-    getCategoryPayload,
+/**
+ * Mostra o dashboard de configurações de Ticket.
+ * @param {import('discord.js').ButtonInteraction} interaction
+ */
+async function showTicketDashboard(interaction) {
+    const config = await guildConfig.findOne({ guildId: interaction.guild.id });
+
+    const embed = new EmbedBuilder()
+        .setColor(0x3498DB)
+        .setTitle('🎫 Configurações de Ticket')
+        .setDescription('Gerencie as configurações do sistema de tickets.')
+        .addFields(
+            { name: 'Categoria dos Tickets', value: `> ${formatId(config?.ticketConfig?.categoryId)}`, inline: false },
+            { name: 'Cargo de Suporte', value: `> ${formatId(config?.ticketConfig?.supportRoleId, 'role')}`, inline: false },
+            { name: 'Canal de Logs', value: `> ${formatId(config?.ticketConfig?.logsChannelId)}`, inline: false }
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder().setCustomId('config_ticket_categoria').setLabel('Alterar Categoria').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_ticket_cargo').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_ticket_logs').setLabel('Alterar Logs').setStyle(ButtonStyle.Primary),
+        );
+
+    const backButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_menu_main').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('⬅️')
+    );
+
+    await interaction.update({ embeds: [embed], components: [buttons, backButton] });
+}
+
+/**
+ * Mostra o dashboard de configurações de Ponto.
+ * @param {import('discord.js').ButtonInteraction} interaction
+ */
+async function showPontoDashboard(interaction) {
+    const config = await guildConfig.findOne({ guildId: interaction.guild.id });
+
+    const embed = new EmbedBuilder()
+        .setColor(0x2ECC71)
+        .setTitle('⏰ Configurações de Ponto')
+        .setDescription('Gerencie as configurações do sistema de ponto.')
+        .addFields(
+            { name: 'Canal de Ponto', value: `> ${formatId(config?.pontoConfig?.pontoChannelId)}`, inline: false },
+            { name: 'Cargo para Bater Ponto', value: `> ${formatId(config?.pontoConfig?.pontoRoleId, 'role')}`, inline: false }
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder().setCustomId('config_ponto_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_ponto_cargo').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+        );
+
+    const backButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_menu_main').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('⬅️')
+    );
+
+    await interaction.update({ embeds: [embed], components: [buttons, backButton] });
+}
+
+/**
+ * Mostra o dashboard de configurações de Ausência.
+ * @param {import('discord.js').ButtonInteraction} interaction
+ */
+async function showAbsenceDashboard(interaction) {
+    const config = await guildConfig.findOne({ guildId: interaction.guild.id });
+
+    const embed = new EmbedBuilder()
+        .setColor(0xE67E22)
+        .setTitle('🛌 Configurações de Ausência')
+        .setDescription('Gerencie as configurações do sistema de ausência.')
+        .addFields(
+            { name: 'Canal de Ausências', value: `> ${formatId(config?.absenceConfig?.absenceChannelId)}`, inline: false },
+            { name: 'Canal de Logs de Ausência', value: `> ${formatId(config?.absenceConfig?.absenceLogChannelId)}`, inline: false },
+            { name: 'Cargo para Ausência', value: `> ${formatId(config?.absenceConfig?.absenceRoleId, 'role')}`, inline: false }
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder().setCustomId('config_ausencia_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_ausencia_logs').setLabel('Alterar Logs').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_ausencia_cargo').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+        );
+
+    const backButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_menu_main').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('⬅️')
+    );
+
+    await interaction.update({ embeds: [embed], components: [buttons, backButton] });
+}
+
+/**
+ * Mostra o dashboard de configurações de Registro.
+ * @param {import('discord.js').ButtonInteraction} interaction
+ */
+async function showRegistrationDashboard(interaction) {
+    const config = await guildConfig.findOne({ guildId: interaction.guild.id });
+
+    const embed = new EmbedBuilder()
+        .setColor(0x9B59B6)
+        .setTitle('📝 Configurações de Registro')
+        .setDescription('Gerencie as configurações do sistema de registro.')
+        .addFields(
+            { name: 'Canal de Registro', value: `> ${formatId(config?.registrationConfig?.registrationChannelId)}`, inline: false },
+            { name: 'Canal de Logs de Registro', value: `> ${formatId(config?.registrationConfig?.registrationLogChannelId)}`, inline: false },
+            { name: 'Cargo de Membro Padrão', value: `> ${formatId(config?.registrationConfig?.memberRoleId, 'role')}`, inline: false }
+        );
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder().setCustomId('config_registro_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_registro_logs').setLabel('Alterar Logs').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('config_registro_cargo').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+        );
+
+    const backButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_menu_main').setLabel('Voltar').setStyle(ButtonStyle.Danger).setEmoji('⬅️')
+    );
+
+    await interaction.update({ embeds: [embed], components: [buttons, backButton] });
+}
+
+
+module.exports = {
+    showMainMenu,
+    showTicketDashboard,
+    showPontoDashboard,
+    showAbsenceDashboard,
+    showRegistrationDashboard,
 };
