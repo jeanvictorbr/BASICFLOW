@@ -4,9 +4,12 @@ require('dotenv-flow').config();
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const connectToDatabase = require('./database/db');
-const { handleInteraction } = require('./interactions/handler'); // Importa a função correta
+const { handleInteraction } = require('./interactions/handler');
 const absenceChecker = require('./tasks/absence_checker');
+
+// --- CORREÇÃO AQUI ---
+// Importamos a função específica de dentro do módulo exportado.
+const { connectToDatabase } = require('./database/db');
 
 const client = new Client({
     intents: [
@@ -34,23 +37,16 @@ for (const file of commandFiles) {
 
 client.once('ready', async () => {
     console.log(`[INFO] Bot ${client.user.tag} está online!`);
-    
-    // Inicia a tarefa de verificação de ausências
     absenceChecker(client);
 });
 
-// AQUI ESTÁ A MUDANÇA PRINCIPAL
-// Agora, em vez de um bloco try/catch, apenas passamos a função handleInteraction.
-// Ela já tem seu próprio tratamento de erros.
 client.on('interactionCreate', handleInteraction);
-
 
 (async () => {
     try {
-        await connectToDatabase();
+        await connectToDatabase(); // Esta chamada agora funcionará corretamente.
         await client.login(process.env.DISCORD_TOKEN);
     } catch (error) {
-        // Corrigido para não chamar mais a função que não existe.
         console.error('Falha na inicialização da base de dados ou no login do cliente:', error);
     }
 })();

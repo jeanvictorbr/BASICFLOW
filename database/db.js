@@ -1,22 +1,26 @@
-// Ficheiro: database/db.js
-const { Pool } = require('pg');
+// database/db.js
+
+const mongoose = require('mongoose');
 require('dotenv-flow').config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const MONGODB_URI = process.env.MONGODB_URI;
 
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-  get: async (sql, params = []) => {
-    const res = await pool.query(sql, params);
-    return res.rows[0];
-  },
-  all: async (sql, params = []) => {
-    const res = await pool.query(sql, params);
-    return res.rows;
-  },
-  run: async (sql, params = []) => {
-    return pool.query(sql, params);
-  }
+const connectToDatabase = async () => {
+    if (!MONGODB_URI) {
+        console.error('[ERRO] A string de conexão do MongoDB não foi definida no arquivo .env.');
+        process.exit(1);
+    }
+
+    try {
+        // As opções useNewUrlParser e useUnifiedTopology não são mais necessárias
+        await mongoose.connect(MONGODB_URI);
+        console.log('[INFO] Conectado com sucesso à base de dados MongoDB.');
+    } catch (error) {
+        console.error('[ERRO] Não foi possível conectar à base de dados:', error);
+        process.exit(1);
+    }
 };
+
+// --- CORREÇÃO AQUI ---
+// Exportamos um objeto que contém a função.
+module.exports = { connectToDatabase };
