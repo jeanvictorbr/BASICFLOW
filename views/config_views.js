@@ -1,20 +1,8 @@
 // views/config_views.js
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const pool = require('../database/db');
+const db = require('../database/db.js');
 
-// Helper para buscar a configuração de um servidor
-async function getGuildConfig(guildId) {
-    try {
-        const res = await pool.query('SELECT config FROM guild_configs WHERE guild_id = $1', [guildId]);
-        return res.rows[0]?.config || {}; // Retorna a config ou um objeto vazio
-    } catch (error) {
-        console.error("Erro ao buscar configuração do servidor:", error);
-        return {};
-    }
-}
-
-// Função para formatar o ID para exibição
 const formatId = (id, type = 'channel') => {
     if (!id) return '`Não definido`';
     return type === 'channel' ? `<#${id}>` : `<@&${id}>`;
@@ -43,14 +31,14 @@ async function showMainMenu(interaction, isUpdate = false) {
 }
 
 async function showTicketDashboard(interaction) {
-    const config = await getGuildConfig(interaction.guild.id);
+    const settings = await db.get('SELECT ticket_category_id, support_role_id, ticket_log_channel_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
     const embed = new EmbedBuilder()
         .setColor(0x3498DB)
         .setTitle('🎫 Configurações de Ticket')
         .addFields(
-            { name: 'Categoria dos Tickets', value: `> ${formatId(config.ticketConfig?.categoryId)}` },
-            { name: 'Cargo de Suporte', value: `> ${formatId(config.ticketConfig?.supportRoleId, 'role')}` },
-            { name: 'Canal de Logs', value: `> ${formatId(config.ticketConfig?.logsChannelId)}` }
+            { name: 'Categoria dos Tickets', value: `> ${formatId(settings?.ticket_category_id)}` },
+            { name: 'Cargo de Suporte', value: `> ${formatId(settings?.support_role_id, 'role')}` },
+            { name: 'Canal de Logs', value: `> ${formatId(settings?.ticket_log_channel_id)}` }
         );
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_ticket_categoria').setLabel('Alterar Categoria').setStyle(ButtonStyle.Primary),
@@ -64,13 +52,13 @@ async function showTicketDashboard(interaction) {
 }
 
 async function showPontoDashboard(interaction) {
-    const config = await getGuildConfig(interaction.guild.id);
+    const settings = await db.get('SELECT ponto_channel_id, ponto_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
     const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
         .setTitle('⏰ Configurações de Ponto')
         .addFields(
-            { name: 'Canal de Ponto', value: `> ${formatId(config.pontoConfig?.pontoChannelId)}` },
-            { name: 'Cargo para Bater Ponto', value: `> ${formatId(config.pontoConfig?.pontoRoleId, 'role')}` }
+            { name: 'Canal de Ponto', value: `> ${formatId(settings?.ponto_channel_id)}` },
+            { name: 'Cargo para Bater Ponto', value: `> ${formatId(settings?.ponto_role_id, 'role')}` }
         );
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_ponto_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
@@ -83,14 +71,14 @@ async function showPontoDashboard(interaction) {
 }
 
 async function showAbsenceDashboard(interaction) {
-    const config = await getGuildConfig(interaction.guild.id);
+    const settings = await db.get('SELECT absence_channel_id, absence_log_channel_id, absence_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
     const embed = new EmbedBuilder()
         .setColor(0xE67E22)
         .setTitle('🛌 Configurações de Ausência')
         .addFields(
-            { name: 'Canal de Ausências', value: `> ${formatId(config.absenceConfig?.absenceChannelId)}` },
-            { name: 'Canal de Logs de Ausência', value: `> ${formatId(config.absenceConfig?.absenceLogChannelId)}` },
-            { name: 'Cargo para Ausência', value: `> ${formatId(config.absenceConfig?.absenceRoleId, 'role')}` }
+            { name: 'Canal de Ausências', value: `> ${formatId(settings?.absence_channel_id)}` },
+            { name: 'Canal de Logs de Ausência', value: `> ${formatId(settings?.absence_log_channel_id)}` },
+            { name: 'Cargo para Ausência', value: `> ${formatId(settings?.absence_role_id, 'role')}` }
         );
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_ausencia_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
@@ -104,14 +92,14 @@ async function showAbsenceDashboard(interaction) {
 }
 
 async function showRegistrationDashboard(interaction) {
-    const config = await getGuildConfig(interaction.guild.id);
+    const settings = await db.get('SELECT registration_channel_id, registration_log_channel_id, member_role_id FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
     const embed = new EmbedBuilder()
         .setColor(0x9B59B6)
         .setTitle('📝 Configurações de Registro')
         .addFields(
-            { name: 'Canal de Registro', value: `> ${formatId(config.registrationConfig?.registrationChannelId)}` },
-            { name: 'Canal de Logs de Registro', value: `> ${formatId(config.registrationConfig?.registrationLogChannelId)}` },
-            { name: 'Cargo de Membro Padrão', value: `> ${formatId(config.registrationConfig?.memberRoleId, 'role')}` }
+            { name: 'Canal de Registro', value: `> ${formatId(settings?.registration_channel_id)}` },
+            { name: 'Canal de Logs de Registro', value: `> ${formatId(settings?.registration_log_channel_id)}` },
+            { name: 'Cargo de Membro Padrão', value: `> ${formatId(settings?.member_role_id, 'role')}` }
         );
     const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('config_registro_canal').setLabel('Alterar Canal').setStyle(ButtonStyle.Primary),
