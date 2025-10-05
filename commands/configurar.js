@@ -26,22 +26,24 @@ module.exports = {
     async execute(interaction) {
         
         const componentsPayload = [
-            // CORREÇÃO FINAL: Cada Section agora está dentro de sua própria ActionRow.
-            // A API exige que o componente de nível superior seja um dos tipos permitidos (como o ActionRow, tipo 1).
+            // Cada Section fica dentro de sua própria ActionRow
             {
                 type: ComponentType.ActionRow,
                 components: [
                     {
                         type: ComponentType.Section,
+                        // CORREÇÃO FINAL: Adicionando o custom_id exigido pela API na Section
+                        custom_id: 'config_section_channel', 
                         accessory: {
                             type: ComponentType.Button,
                             style: ButtonStyle.Primary,
                             label: 'Editar',
-                            custom_id: 'edit_channel_button',
+                            custom_id: 'edit_channel_button', // O botão mantém seu ID para a interação
                         },
                         components: [{
                             type: ComponentType.TextDisplay,
-                            content: `** Canal de Aprovação Atual**\nConfigure o canal para enviar as solicitações.\n> ${serverConfig.approvalChannel}`
+                            // Ajustando o texto para ficar similar à imagem
+                            content: `**Interface do Sistema**\nAltere aqui configurações visuais do bot, como cor padrão, etc.`
                         }]
                     }
                 ]
@@ -51,6 +53,8 @@ module.exports = {
                 components: [
                     {
                         type: ComponentType.Section,
+                        // CORREÇÃO FINAL: Adicionando o custom_id exigido pela API na Section
+                        custom_id: 'config_section_role',
                         accessory: {
                             type: ComponentType.Button,
                             style: ButtonStyle.Primary,
@@ -59,26 +63,30 @@ module.exports = {
                         },
                         components: [{
                             type: ComponentType.TextDisplay,
-                            content: `** Cargo de Aprovador Atual**\nConfigure o cargo que poderá aprovar as solicitações.\n> ${serverConfig.approverRole}`
+                            content: `**Sistema de Registro**\nConfigure todo o sistema de registro, incluindo cargos e canais.`
                         }]
                     }
                 ]
             },
-            // A ActionRow final com os botões de ação já estava correta.
+            // ActionRow para botões desabilitados "Premium", como na imagem
             {
                 type: ComponentType.ActionRow,
                 components: [
                     {
-                        type: ComponentType.Button,
-                        style: ButtonStyle.Success,
-                        label: 'Ativar Registro',
-                        custom_id: 'activate_button',
-                    },
-                    {
-                        type: ComponentType.Button,
-                        style: ButtonStyle.Secondary,
-                        label: 'Voltar',
-                        custom_id: 'back_button',
+                        type: ComponentType.Section,
+                        custom_id: 'config_section_premium_example',
+                        accessory: {
+                            type: ComponentType.Button,
+                            style: ButtonStyle.Secondary,
+                            label: 'Premium',
+                            custom_id: 'premium_button_locked',
+                            emoji: { name: '⚙️' },
+                            disabled: true,
+                        },
+                        components: [{
+                            type: ComponentType.TextDisplay,
+                            content: `**Sistema de Baú**\nGerencie os itens do baú, canais de logs e ative o sistema.`
+                        }]
                     }
                 ]
             }
