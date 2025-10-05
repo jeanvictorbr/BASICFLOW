@@ -1,89 +1,73 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const db = require('../database/db.js');
-// Importando as novas embeds
-const { getApprovalDmEmbed, getRejectionDmEmbed } = require('../views/registration_views.js');
+// NOVO ARQUIVO
+const { MessageFlags, EmbedBuilder } = require('discord.js');
+const db = require('../database/db');
 
-const approvalHandler = {
-    customId: (id) => id.startsWith('approve_registration:') || id.startsWith('reject_registration:'),
+const prefix = 'approval';
 
-    async execute(interaction) {
-        await interaction.deferUpdate();
+async function handle(interaction) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    
+    // Formato do customId: approval:contexto_acao:id -> approval:reg_approve:123
+    const [_, contextAction, submissionId] = interaction.customId.split(':');
+    const [context, action] = contextAction.split('_');
 
-        const [action, targetUserId] = interaction.customId.split(':');
-        const isApproving = action === 'approve_registration';
-        
-        try {
-            // Buscamos a TAG junto com o cargo
-            const settings = await db.get('SELECT registered_role_id, nickname_tag FROM guild_settings WHERE guild_id = $1', [interaction.guildId]);
-            
-            if (isApproving && !settings?.registered_role_id) {
-                return interaction.followUp({ content: '❌ **Falha na Aprovação:** O "Cargo de Membro Registado" não foi configurado.', ephemeral: true });
-            }
-
-            const targetMember = await interaction.guild.members.fetch(targetUserId).catch(() => null);
-            if (!targetMember) {
-                return interaction.editReply({ content: 'O utilizador original não se encontra mais no servidor.', components: [], embeds: [interaction.message.embeds[0]] });
-            }
-
-            const botMember = interaction.guild.members.me;
-            if (isApproving) {
-                // Verificando permissões de Gerir Cargos e Gerir Nicknames
-                if (!botMember.permissions.has([PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageNicknames])) {
-                     return interaction.followUp({ content: '❌ **Falha na Aprovação:** Eu preciso das permissões de "Gerir Cargos" e "Gerir Apelidos" para funcionar corretamente.', ephemeral: true });
-                }
-                const targetRole = await interaction.guild.roles.fetch(settings.registered_role_id);
-                if (botMember.roles.highest.position <= targetRole.position) {
-                    return interaction.followUp({ content: `❌ **Falha na Aprovação:** O cargo ${targetRole} está acima de mim.`, ephemeral: true });
-                }
-            }
-
-            const dbStatus = isApproving ? 'approved' : 'rejected';
-            
-            // Buscamos o nome RP e ID do jogo na base de dados
-            const registrationData = await db.get('SELECT rp_name, game_id FROM registrations WHERE guild_id = $1 AND user_id = $2 AND status = $3', [interaction.guildId, targetUserId, 'pending']);
-            if (!registrationData) {
-                 return interaction.followUp({ content: '⚠️ Este registo já foi processado ou não foi encontrado.', ephemeral: true });
-            }
-
-            await db.run('UPDATE registrations SET status = $1, approver_id = $2 WHERE guild_id = $3 AND user_id = $4 AND status = $5', [dbStatus, interaction.user.id, interaction.guildId, targetUserId, 'pending']);
-            
-            if (isApproving) {
-                await targetMember.roles.add(settings.registered_role_id);
-                
-                // Monta e define o novo nickname
-                const { rp_name, game_id } = registrationData;
-                const tag = settings.nickname_tag;
-                const newNickname = tag ? `[${tag}] ${rp_name} | ${game_id}` : `${rp_name} | ${game_id}`;
-
-                try {
-                    await targetMember.setNickname(newNickname.substring(0, 32)); // Limita a 32 caracteres
-                } catch (nickError) {
-                    console.error("Falha ao definir o nickname:", nickError.message);
-                    interaction.followUp({ content: `⚠️ O cargo foi atribuído, mas não consegui alterar o nickname do utilizador (provavelmente ele tem um cargo superior ao meu).`, ephemeral: true });
-                }
-            }
-
-            const originalEmbed = interaction.message.embeds[0];
-            const newEmbed = EmbedBuilder.from(originalEmbed)
-                .setColor(isApproving ? 0x57F287 : 0xED4245)
-                // ADICIONANDO A THUMBNAIL AO LOG FINAL
-                .setThumbnail(targetMember.displayAvatarURL({ dynamic: true, size: 128 }))
-                .setFields( ...originalEmbed.fields, { name: `Ação Realizada`, value: `Registo **${dbStatus === 'approved' ? 'Aprovado' : 'Rejeitado'}** por ${interaction.user}.` });
-
-            await interaction.editReply({ embeds: [newEmbed], components: [] });
-            
-            // Enviando as novas DMs em embed
-            const dmEmbed = isApproving 
-                ? getApprovalDmEmbed(interaction.guild, registrationData.rp_name, registrationData.game_id, settings.nickname_tag)
-                : getRejectionDmEmbed(interaction.guild);
-
-            await targetMember.send({ embeds: [dmEmbed] }).catch(() => {});
-
-        } catch (error) {
-            console.error('Erro ao processar aprovação/rejeição:', error);
-            await interaction.followUp({ content: '❌ Ocorreu um erro crítico ao processar esta ação.', ephemeral: true });
-        }
+    if (context === 'reg') {
+        await handleRegistration(interaction, action, submissionId);
     }
-};
+    // Adicionar outros contextos aqui no futuro (ex: 'absence')
+}
 
-module.exports = approvalHandler;
+async function handleRegistration(interaction, action, submissionId) {
+    const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [interaction.guild.id]);
+    const staffRoleId = settings.registration_staff_role_id;
+
+    if (!interaction.member.roles.cache.has(staffRoleId)) {
+        return interaction.editReply({ content: '❌ Você não tem permissão para executar esta ação.' });
+    }
+
+    const registration = await db.get('SELECT * FROM registrations WHERE id = $1', [submissionId]);
+    if (!registration) {
+        return interaction.editReply({ content: '❌ Este registro não foi encontrado no banco de dados.' });
+    }
+    if (registration.status !== 'pending') {
+        const handler = await interaction.guild.members.fetch(registration.handled_by);
+        return interaction.editReply({ content: `⚠️ Este registro já foi finalizado como **${registration.status}** por ${handler.user.tag}.` });
+    }
+
+    const targetMember = await interaction.guild.members.fetch(registration.user_id).catch(() => null);
+    if (!targetMember) {
+        return interaction.editReply({ content: '❌ O membro que solicitou o registro não está mais neste servidor.' });
+    }
+    
+    const newStatus = action === 'approve' ? 'approved' : 'denied';
+
+    // Atualiza o banco de dados
+    await db.run(
+        'UPDATE registrations SET status = $1, handled_by = $2 WHERE id = $3',
+        [newStatus, interaction.user.id, submissionId]
+    );
+
+    const originalMessage = interaction.message;
+    const originalEmbed = new EmbedBuilder(originalMessage.embeds[0].data);
+    let dmMessage = '';
+
+    if (newStatus === 'approved') {
+        originalEmbed.setColor('#2ECC71').setFooter({ text: `Aprovado por ${interaction.user.tag}` });
+        dmMessage = '🎉 Parabéns! Seu registro em nosso servidor foi aprovado.';
+        if (settings.registration_approved_role_id) {
+            await targetMember.roles.add(settings.registration_approved_role_id);
+            dmMessage += ` Você recebeu o cargo de membro.`;
+        }
+    } else { // denied
+        originalEmbed.setColor('#E74C3C').setFooter({ text: `Reprovado por ${interaction.user.tag}` });
+        dmMessage = 'Sua solicitação de registro em nosso servidor foi reprovada.';
+    }
+
+    // Envia DM e edita a mensagem da staff
+    await targetMember.send(dmMessage).catch(() => console.log(`Não foi possível enviar DM para ${targetMember.user.tag}`));
+    await originalMessage.edit({ embeds: [originalEmbed], components: [] }); // Remove os botões
+    await interaction.editReply({ content: `✅ Ação executada com sucesso. O usuário foi notificado.` });
+}
+
+
+module.exports = { prefix, handle };
