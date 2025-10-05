@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+// Adicionado "Events" na importação
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const dotenv = require('dotenv-flow');
 const database = require('./database/schema');
 const interactionHandler = require('./interactions/handler');
@@ -8,7 +9,6 @@ const interactionHandler = require('./interactions/handler');
 // Carrega as variáveis de ambiente
 dotenv.config();
 
-// Inicializa o Cliente do Discord com as Intents necessárias
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -17,7 +17,6 @@ const client = new Client({
     ],
 });
 
-// Carrega os comandos
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -32,8 +31,8 @@ for (const file of commandFiles) {
     }
 }
 
-// Evento de Cliente Pronto
-client.once('ready', async () => {
+// ✔️ CORRIGIDO: Evento 'ready' trocado por 'Events.ClientReady'
+client.once(Events.ClientReady, async () => {
     console.log(`[INFO] Logado como ${client.user.tag}`);
     console.log('[INFO] Inicializando e verificando o banco de dados...');
     try {
@@ -41,38 +40,33 @@ client.once('ready', async () => {
         console.log('[INFO] Banco de dados pronto.');
     } catch (error) {
         console.error('[ERRO] Não foi possível inicializar o banco de dados:', error);
-        process.exit(1); // Encerra o processo se o DB falhar
+        process.exit(1);
     }
-
-    // O ideal é registrar os comandos via um script separado (deploy-commands.js),
-    // mas a inicialização aqui também é possível.
     console.log('[INFO] O bot está online e pronto para operar.');
 });
 
-// Roteador de Interações
 client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
         const command = interaction.client.commands.get(interaction.commandName);
-
         if (!command) {
             console.error(`[ERRO] Nenhum comando correspondente a ${interaction.commandName} foi encontrado.`);
             return;
         }
-
         try {
             await command.execute(interaction);
         } catch (error) {
             console.error(error);
+            const errorMessage = { content: 'Ocorreu um erro ao executar este comando!', ephemeral: true };
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+                await interaction.followUp(errorMessage);
             } else {
-                await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+                await interaction.reply(errorMessage);
             }
         }
     } else {
-        // Delega todas as outras interações (botões, menus, modais) para o handler principal
         interactionHandler.execute(interaction);
     }
 });
 
+// Verifique seu arquivo .env! O erro TokenInvalid vem daqui.
 client.login(process.env.DISCORD_TOKEN);

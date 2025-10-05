@@ -1,86 +1,89 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
-// Helper para formatar valores
+// Helper para formatar valores e indicar se estão configurados
 const formatValue = (value, type) => {
-    if (!value) return '`Não definido`';
-    switch (type) {
-        case 'channel': return `<#${value}>`;
-        case 'role': return `<@&${value}>`;
-        default: return `\`${value}\``;
-    }
+    if (!value) return '❌ Não definido';
+    if (type === 'channel') return `<#${value}>`;
+    if (type === 'role') return `<@&${value}>`;
+    return `✅ Definido`;
 };
 
+// ===================================================================
+// 🎨 NOVO PAINEL PRINCIPAL
+// ===================================================================
 function getConfigDashboardPayload(settings) {
-    // Usando a nova API de Componentes V2 (Layout Components)
-    // Nota: A API exata para "TextDisplay" e "Section" ainda não foi
-    // finalizada em discord.js. O código abaixo usa botões e texto de mensagem
-    // para emular o comportamento desejado até que a API esteja estável.
-    // A lógica principal de atualização de componentes permanece a mesma.
+    const embed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle('⚙️ Painel de Configurações do BasicFlow')
+        .setDescription('Selecione um módulo abaixo para visualizar e gerenciar suas configurações de forma intuitiva.');
 
-    const content = "## ⚙️ Painel de Configurações do BasicFlow\nSelecione um módulo para gerenciar suas configurações.";
+    // Adiciona um campo para cada módulo, mostrando um status rápido
+    embed.addFields(
+        { name: '📝 Registros', value: 'Sistema de aprovação de novos membros.', inline: true },
+        { name: '🗓️ Ausências', value: 'Gerenciamento de períodos de ausência.', inline: true },
+        { name: '🎫 Tickets', value: 'Criação de canais de suporte privado.', inline: true },
+        { name: '⏰ Ponto', value: 'Registro de entrada e saída de serviço.', inline: true },
+        { name: '👕 Uniformes', value: 'Catálogo interativo de uniformes.', inline: true },
+        { name: 'Outros', value: 'Configurações gerais do bot.', inline: true },
+    );
 
-    const row1 = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('config_menu:registration')
-                .setLabel('Registros')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📝'),
-            new ButtonBuilder()
-                .setCustomId('config_menu:absence')
-                .setLabel('Ausências')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🗓️'),
-            new ButtonBuilder()
-                .setCustomId('config_menu:tickets')
-                .setLabel('Tickets')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🎫')
-        );
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('config_menu:registration').setLabel('Registros').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
+        new ButtonBuilder().setCustomId('config_menu:absence').setLabel('Ausências').setStyle(ButtonStyle.Secondary).setEmoji('🗓️'),
+        new ButtonBuilder().setCustomId('config_menu:tickets').setLabel('Tickets').setStyle(ButtonStyle.Secondary).setEmoji('🎫'),
+        new ButtonBuilder().setCustomId('config_menu:ponto').setLabel('Ponto').setStyle(ButtonStyle.Secondary).setEmoji('⏰'),
+        new ButtonBuilder().setCustomId('config_menu:uniformes').setLabel('Uniformes').setStyle(ButtonStyle.Secondary).setEmoji('👕')
+    );
 
-    const row2 = new ActionRowBuilder()
-        .addComponents(
-             new ButtonBuilder()
-                .setCustomId('config_menu:ponto')
-                .setLabel('Ponto')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('⏰'),
-            new ButtonBuilder()
-                .setCustomId('config_menu:uniformes')
-                .setLabel('Uniformes')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('👕')
-        );
-
-    return { content, components: [row1, row2], ephemeral: true };
+    return { embeds: [embed], components: [row] };
 }
 
+
+// ===================================================================
+// 🎨 NOVOS PAINÉIS DE CATEGORIA
+// ===================================================================
 function getCategoryConfigPayload(category, settings) {
-    let content = `### Configurações do Módulo: ${category.charAt(0).toUpperCase() + category.slice(1)}\n`;
+    const embed = new EmbedBuilder().setColor('#2ECC71');
     const components = [];
 
-    // Constrói dinamicamente os botões e texto para cada categoria
     switch (category) {
         case 'registration':
-            content += `**Canal de Logs:** ${formatValue(settings.registration_log_channel_id, 'channel')}\n`;
-            content += `**Cargo de Staff:** ${formatValue(settings.registration_staff_role_id, 'role')}\n`;
-            content += `**Cargo Aprovado:** ${formatValue(settings.registration_approved_role_id, 'role')}\n`;
-            // Adicione mais...
-
-            components.push(
-                new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('config_set:reg_log_channel').setLabel('Alterar Canal de Log').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('config_set:reg_approved_role').setLabel('Alterar Cargo Aprovado').setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder().setCustomId('config_set:reg_panel_image').setLabel('Alterar Imagem do Painel').setStyle(ButtonStyle.Primary)
-                )
+            embed.setTitle('📝 Configurações de Registro');
+            embed.setDescription(
+                `**Canal de Logs:** ${formatValue(settings.registration_log_channel_id, 'channel')}\n` +
+                `**Cargo de Staff:** ${formatValue(settings.registration_staff_role_id, 'role')}\n` +
+                `**Cargo Aprovado:** ${formatValue(settings.registration_approved_role_id, 'role')}`
             );
+            // Botões de ação para este módulo
+            const regButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config_set:reg_log_channel').setLabel('Alterar Log').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config_set:reg_approved_role').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary)
+            );
+            components.push(regButtons);
             break;
-        // Adicionar casos para 'absence', 'tickets', 'ponto', 'uniformes'
+
+        // Adicionar outros casos aqui (absence, tickets, etc.)
+        // Exemplo para Ponto:
+        case 'ponto':
+             embed.setTitle('⏰ Configurações de Ponto');
+             embed.setDescription(
+                `**Canal do Painel:** ${formatValue(settings.ponto_channel_id, 'channel')}\n` +
+                `**Cargo em Serviço:** ${formatValue(settings.ponto_role_id, 'role')}\n` +
+                `**Canal do Monitor:** ${formatValue(settings.ponto_monitor_channel_id, 'channel')}`
+             );
+             const pontoButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('config_set:ponto_role').setLabel('Alterar Cargo').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId('config_set:ponto_monitor').setLabel('Alterar Monitor').setStyle(ButtonStyle.Primary)
+            );
+            components.push(pontoButtons);
+            break;
+            
         default:
-            content = "Módulo não encontrado.";
+            embed.setTitle('Módulo em Construção').setColor('#E67E22');
+            embed.setDescription(`As configurações para o módulo \`${category}\` ainda não foram implementadas.`);
     }
 
-    // Botão de voltar
+    // Botão universal para voltar
     const backButtonRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('config_menu:main')
@@ -89,8 +92,7 @@ function getCategoryConfigPayload(category, settings) {
     );
     components.push(backButtonRow);
 
-    return { content, components, ephemeral: true };
+    return { embeds: [embed], components };
 }
-
 
 module.exports = { getConfigDashboardPayload, getCategoryConfigPayload };
