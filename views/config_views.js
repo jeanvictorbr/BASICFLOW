@@ -1,4 +1,4 @@
-// Ficheiro: views/config_views.js (VERSÃO FINAL COM INTERFACE V2 CORRIGIDA)
+// Ficheiro: views/config_views.js (VERSÃO FINAL COM INTERFACE V2 CORRIGIDA E FUNCIONAL)
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const db = require('../database/db.js');
@@ -48,7 +48,8 @@ async function getConfigDashboardPayload(guild, userId) {
     return { embeds: [embed], components: rows, ephemeral: true };
 }
 
-// --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria (ESTILO V2) ---
+
+// --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria (ESTILO V2 - A MELHOR VERSÃO POSSÍVEL) ---
 async function getCategoryPayload(guild, category) {
     // CORREÇÃO da query SQL que estava a causar o erro anterior
     const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
@@ -58,7 +59,6 @@ async function getCategoryPayload(guild, category) {
         .setTimestamp();
         
     const components = [];
-    let description = '';
 
     const categoryMappings = {
         registration: {
@@ -104,25 +104,46 @@ async function getCategoryPayload(guild, category) {
     if (currentCategory) {
         embed.setTitle(currentCategory.title);
         
-        let description = '';
+        const fields = [];
+        let buttonRow = new ActionRowBuilder();
+
         currentCategory.settings.forEach(setting => {
-            // Monta a linha de texto no embed
-            description += `**${setting.label}:** ${formatStatus(settings, setting.key, setting.type)}\n`;
-            
-            // Cria uma ActionRow para CADA botão, restaurando o layout V2
-            const row = new ActionRowBuilder().addComponents(
+            // Adiciona a informação como um campo "inline" para criar a aparência de colunas
+            fields.push({
+                name: `**${setting.label}**`,
+                value: formatStatus(settings, setting.key, setting.type),
+                inline: true
+            });
+
+            // Adiciona um botão para cada configuração
+            buttonRow.addComponents(
                 new ButtonBuilder()
                     .setCustomId(setting.buttonId)
-                    .setLabel('Alterar')
+                    .setLabel(`Alterar ${setting.label}`)
                     .setStyle(ButtonStyle.Primary)
             );
-            components.push(row);
+
+            // O Discord só permite 5 botões por linha. Se atingir o limite, cria uma nova linha.
+            if (buttonRow.components.length === 5) {
+                components.push(buttonRow);
+                buttonRow = new ActionRowBuilder();
+            }
         });
         
-        embed.setDescription(description);
+        // Adiciona a linha de botões se ela tiver algum botão sobrando
+        if (buttonRow.components.length > 0) {
+            components.push(buttonRow);
+        }
+        
+        // Adiciona campos em branco para alinhar a grade de 3 colunas perfeitamente
+        while (fields.length % 3 !== 0) {
+            fields.push({ name: '\u200B', value: '\u200B', inline: true });
+        }
+
+        embed.setFields(fields);
     }
     
-    // Adiciona o botão de Voltar no final, em sua própria ActionRow
+    // Adiciona o botão de Voltar no final
     components.push(
         new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('config_menu:main').setLabel('⬅️ Voltar').setStyle(ButtonStyle.Secondary)
