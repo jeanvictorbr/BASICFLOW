@@ -4,10 +4,12 @@ const { SlashCommandBuilder, ButtonStyle } = require('discord.js');
 const ComponentType = {
     ActionRow: 1,
     Button: 2,
+    StringSelect: 3,
     Container: 7,
     Section: 8,
     TextDisplay: 9,
-    Separator: 11, // Componente para criar uma linha divisória
+    MediaGallery: 10,
+    Separator: 11,
 };
 
 // As flags necessárias
@@ -17,78 +19,100 @@ const EPHEMERAL_FLAG = 1 << 6;
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('configurar')
-        .setDescription('Mostra o painel de configurações utilizando Containers.'),
+        .setDescription('Mostra o painel de configurações utilizando a estrutura correta.'),
 
     async execute(interaction) {
         
         const componentsPayload = [
-            // 1. O Container Principal: ele será o "card" da nossa mensagem.
-            // A API exige que ele esteja dentro de uma ActionRow.
-            {
-                type: ComponentType.ActionRow,
-                components: [{
-                    type: ComponentType.Container,
-                    custom_id: 'main_config_container',
-                    // A cor da barra lateral, como no seu exemplo.
-                    accent_color: 0x301118, // Um vermelho escuro, pode ser qualquer valor hexadecimal
-                    components: [
-                        // 2. Componentes de Conteúdo DENTRO do Container
-                        {
-                            type: ComponentType.TextDisplay,
-                            content: '### SERVIDOR TESTES | Configurações'
-                        },
-                        {
-                            type: ComponentType.Separator, // Linha divisória
-                        },
-                        {
-                            type: ComponentType.Section,
-                            custom_id: 'section_interface',
-                            accessory: {
-                                type: ComponentType.Button,
-                                style: ButtonStyle.Primary,
-                                label: 'Editar',
-                                custom_id: 'edit_interface_button',
-                                emoji: { name: '⚙️' }
-                            },
-                            components: [{
-                                type: ComponentType.TextDisplay,
-                                content: '**Interface do Sistema**\nAltere aqui configurações visuais do bot.'
-                            }]
-                        },
-                        {
-                            type: ComponentType.Section,
-                            custom_id: 'section_register',
-                            accessory: {
-                                type: ComponentType.Button,
-                                style: ButtonStyle.Secondary,
-                                label: 'Premium',
-                                custom_id: 'locked_register_button',
-                                emoji: { name: '⭐' },
-                                disabled: true
-                            },
-                            components: [{
-                                type: ComponentType.TextDisplay,
-                                content: '**Sistema de Registro**\nConfigure todo o sistema de registro.'
-                            }]
-                        }
-                    ]
-                }]
-            },
-            // 3. ActionRow externa para botões globais (se necessário)
+            // A estrutura raiz é uma ActionRow contendo o Container principal
             {
                 type: ComponentType.ActionRow,
                 components: [
                     {
-                        type: ComponentType.Button,
-                        style: ButtonStyle.Success,
-                        label: 'Salvar Tudo',
-                        custom_id: 'save_all_button',
-                    },
-                    {
-                        type: ComponentType.Button,
-                        style: ButtonStyle.Danger,
-                        label: 'Sair',
-                        custom_id: 'exit_config_button',
+                        type: ComponentType.Container,
+                        custom_id: 'main_container',
+                        accent_color: 0xFF0000, // Cor hexadecimal para Vermelho (16711680)
+                        components: [
+                            // 1. Section para "Sistema de Ausencias"
+                            {
+                                type: ComponentType.Section,
+                                custom_id: 'section_ausencias',
+                                accessory: {
+                                    type: ComponentType.Button,
+                                    style: ButtonStyle.Success,
+                                    label: 'Configurar',
+                                    emoji: { name: '👍' },
+                                    disabled: true,
+                                    custom_id: 'c4dfdc5145f644d5be2bd19fddffd16e'
+                                },
+                                components: [{
+                                    type: ComponentType.TextDisplay,
+                                    content: 'Sistema de Ausencias'
+                                }]
+                            },
+                            // 2. Separator
+                            {
+                                type: ComponentType.Separator,
+                                spacing: 1, // 1 Corresponde a "Small"
+                                divider: true
+                            },
+                            // 3. Section para "Sistema de Tickets"
+                            {
+                                type: ComponentType.Section,
+                                custom_id: 'section_tickets',
+                                accessory: {
+                                    type: ComponentType.Button,
+                                    style: ButtonStyle.Success,
+                                    label: 'Configurar',
+                                    emoji: { name: '👍' },
+                                    custom_id: 'f836765aaae14eb9b2e6b434029bcba9'
+                                },
+                                components: [
+                                    { type: ComponentType.TextDisplay, content: 'Sistema de Tickets' },
+                                    { type: ComponentType.TextDisplay, content: 'sadasdaadasdasdas' }
+                                ]
+                            },
+                            // 4. Separator
+                            {
+                                type: ComponentType.Separator,
+                                spacing: 1, // Small
+                                divider: true
+                            },
+                            // 5. Media Gallery (A imagem precisa ser enviada junto com a mensagem)
+                            // NOTA: Para MediaGallery funcionar, a imagem deve ser enviada como um anexo.
+                            // Por simplicidade, esta parte está comentada, mas a estrutura está aqui.
+                            /*
+                            {
+                                type: ComponentType.MediaGallery,
+                                items: [{
+                                    url: "attachment://5572f52568fe4888d7a9635753298d91.png"
+                                }]
+                            },
+                            */
+                            // 6. ActionRow com botão de Link
+                            {
+                                type: ComponentType.ActionRow,
+                                components: [{
+                                    type: ComponentType.Button,
+                                    style: ButtonStyle.Link,
+                                    label: 'Slow Lemur',
+                                    url: 'https://google.com'
+                                }]
+                            },
+                            // 7. ActionRow com Select Menu
+                            {
+                                type: ComponentType.ActionRow,
+                                components: [{
+                                    type: ComponentType.StringSelect,
+                                    custom_id: '8b38a067f6bc4281c69207ef03efac0e',
+                                    options: [
+                                        { label: 'Sassy Kookabura', value: '143c0797d6e04ffd8c8bbf29a434a46d' },
+                                        { label: 'Dangerous Tarsier', value: 'bcc05918163e4714e28649cc2eaaaec4' },
+                                        { label: 'Colorful Armadillo', value: '147d35b05bd94a45c260460997ee8729' }
+                                    ]
+                                }]
+                            }
+                        ]
                     }
                 ]
             }
@@ -97,6 +121,8 @@ module.exports = {
         await interaction.reply({
             components: componentsPayload,
             flags: V2_FLAG | EPHEMERAL_FLAG,
+            // Para a galeria de mídia funcionar, você precisaria adicionar o 'files' aqui
+            // files: [{ attachment: './path/to/your/image.png', name: '5572f52568fe4888d7a9635753298d91.png' }]
         });
     },
 };
