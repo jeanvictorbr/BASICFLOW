@@ -1,82 +1,63 @@
 // Ficheiro: interactions/handler.js
-// Responsável por carregar e distribuir TODAS as interações (VERSÃO ROBUSTA E MANUAL).
 
-const { Collection } = require('discord.js');
+const fs = require('node:fs');
+const path = require('node:path');
 
-const componentHandlers = new Collection();
-const functionHandlers = [];
+const handlers = [];
 
-// Função que regista os handlers que importamos manualmente
-function registerHandlers() {
-    console.log('[ROBUST HANDLER] A iniciar o carregamento manual de todos os handlers...');
-
-    // Carregamento manual e explícito para máxima robustez
-    const allModules = [
-        require('./config_handler.js'),
-        require('./registration_handler.js'),
-        require('./approval_handler.js'),
-        require('./absence_handler.js'),
-        require('./absence_approval_handler.js'),
-        require('./ticket_handler.js'),
-        require('./dev_panel_handler.js'),
-        require('./uniformes_handler.js'), // <<< NOVA ADIÇÃO AQUI
-    ];
-
-    for (const requiredModule of allModules) {
-        const handlers = Array.isArray(requiredModule) ? requiredModule : [requiredModule];
-        for (const handler of handlers) {
-            if (typeof handler.customId === 'function') {
-                functionHandlers.push(handler);
-            } else if (handler.customId) {
-                componentHandlers.set(handler.customId, handler);
-                console.log(`[ROBUST HANDLER] Handler de componente carregado: ${handler.customId}`);
-            }
-        }
-    }
-    console.log(`[ROBUST HANDLER] Carregamento manual de handlers concluído. Total: ${componentHandlers.size} componentes, ${functionHandlers.length} funções.`);
-}
-
-// A função 'loadHandlers' agora só chama o registo.
+// Função para carregar todos os handlers de interação
 function loadHandlers() {
-    try {
-        registerHandlers();
-    } catch (error) {
-        console.error('[ROBUST HANDLER] ERRO CRÍTICO DURANTE O CARREGAMENTO MANUAL DE HANDLERS:', error);
-        process.exit(1);
+    // Limpa handlers antigos para recarregar
+    handlers.length = 0;
+
+    const handlerFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('_handler.js'));
+
+    for (const file of handlerFiles) {
+        try {
+            const filePath = path.join(__dirname, file);
+            const handlerModule = require(filePath);
+            
+            // Se o módulo exporta uma lista de handlers (como o config_handler.js agora faz)
+            if (Array.isArray(handlerModule.handlers)) {
+                handlers.push(...handlerModule.handlers);
+            } 
+            // Se o módulo exporta um array diretamente (como os seus ficheiros antigos provavelmente fazem)
+            else if (Array.isArray(handlerModule)) {
+                handlers.push(...handlerModule);
+            } 
+            // Se exporta um único objeto handler
+            else {
+                handlers.push(handlerModule);
+            }
+            console.log(`[INFO] Handler Carregado: ${file}`);
+        } catch (error) {
+            console.error(`[ERRO] Falha ao carregar o handler ${file}:`, error);
+        }
     }
 }
 
+// Função para executar a interação
 async function execute(interaction) {
-    const key = interaction.customId;
-    let handler = componentHandlers.get(key);
-    
-    if (!handler) {
-        for (const funcHandler of functionHandlers) {
-            if (funcHandler.customId(key)) {
-                handler = funcHandler;
-                break;
+    // Encontra o handler correspondente
+    const handler = handlers.find(h => {
+        // Se o customId for uma função (para os handlers dinâmicos como 'config_menu:')
+        if (typeof h.customId === 'function') {
+            return h.customId(interaction.customId);
+        }
+        // Se for uma string simples
+        return h.customId === interaction.customId;
+    });
+
+    if (handler) {
+        try {
+            await handler.execute(interaction);
+        } catch (error) {
+            console.error('Erro ao executar interação:', error);
+            if (interaction.deferred || interaction.replied) {
+                await interaction.followUp({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
+            } else {
+                await interaction.reply({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true }).catch(() => {});
             }
-        }
-    }
-    
-    if (!handler) {
-        // Verifica se a interação já foi respondida antes de tentar de novo.
-        if (!interaction.replied && !interaction.deferred) {
-            console.error(`[MASTER_HANDLER] Nenhum handler encontrado para a interação: ${key}. A interação será ignorada.`);
-            // Opcional: Responder ao usuário que o botão pode ter expirado.
-            // await interaction.reply({ content: 'Este componente parece ter expirado.', ephemeral: true }).catch(() => {});
-        }
-        return;
-    }
-    
-    try {
-        await handler.execute(interaction);
-    } catch(error) {
-        console.error(`[HANDLER_EXECUTE_ERROR] Erro ao executar o handler para ${key}:`, error);
-        if (interaction.deferred || interaction.replied) {
-            await interaction.followUp({ content: '❌ Ocorreu um erro ao processar esta ação.', ephemeral: true }).catch(() => {});
-        } else {
-            await interaction.reply({ content: '❌ Ocorreu um erro ao processar esta ação.', ephemeral: true }).catch(() => {});
         }
     }
 }

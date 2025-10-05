@@ -1,7 +1,8 @@
-// Ficheiro: commands/configurar.js (VERSÃO CORRIGIDA)
+// Ficheiro: commands/configurar.js
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { handleConfigCommand } = require('../interactions/handlers/config_handler.js');
+// CORREÇÃO: O handler principal está na pasta de interações.
+const { handleConfigCommand } = require('../interactions/config_handler.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,7 +12,7 @@ module.exports = {
         
     async execute(interaction) {
         // A única responsabilidade deste ficheiro é chamar o handler principal.
-        // Toda a lógica de resposta e "defer" será tratada pelo handler.
+        // A lógica de resposta será tratada lá.
         await handleConfigCommand(interaction);
     },
 };
