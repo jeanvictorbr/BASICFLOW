@@ -1,92 +1,94 @@
 const { SlashCommandBuilder, ButtonStyle } = require('discord.js');
 
-// Simulação de um banco de dados
-const serverConfig = {
-    approvalChannel: '#registro-prisao',
-    approverRole: '@Gerente',
-};
-
-// Os "Tipos de Componentes" que a API do Discord entende
+// Os "Tipos de Componentes" da API V2
 const ComponentType = {
     ActionRow: 1,
     Button: 2,
+    Container: 7,
     Section: 8,
     TextDisplay: 9,
+    Separator: 11, // Componente para criar uma linha divisória
 };
 
-// As flags que precisamos
+// As flags necessárias
 const V2_FLAG = 1 << 15;
 const EPHEMERAL_FLAG = 1 << 6;
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('configurar')
-        .setDescription('Mostra o painel de configurações com Componentes V2.'),
+        .setDescription('Mostra o painel de configurações utilizando Containers.'),
 
     async execute(interaction) {
         
         const componentsPayload = [
-            // Cada Section fica dentro de sua própria ActionRow
+            // 1. O Container Principal: ele será o "card" da nossa mensagem.
+            // A API exige que ele esteja dentro de uma ActionRow.
             {
                 type: ComponentType.ActionRow,
-                components: [
-                    {
-                        type: ComponentType.Section,
-                        // CORREÇÃO FINAL: Adicionando o custom_id exigido pela API na Section
-                        custom_id: 'config_section_channel', 
-                        accessory: {
-                            type: ComponentType.Button,
-                            style: ButtonStyle.Primary,
-                            label: 'Editar',
-                            custom_id: 'edit_channel_button', // O botão mantém seu ID para a interação
-                        },
-                        components: [{
+                components: [{
+                    type: ComponentType.Container,
+                    custom_id: 'main_config_container',
+                    // A cor da barra lateral, como no seu exemplo.
+                    accent_color: 0x301118, // Um vermelho escuro, pode ser qualquer valor hexadecimal
+                    components: [
+                        // 2. Componentes de Conteúdo DENTRO do Container
+                        {
                             type: ComponentType.TextDisplay,
-                            // Ajustando o texto para ficar similar à imagem
-                            content: `**Interface do Sistema**\nAltere aqui configurações visuais do bot, como cor padrão, etc.`
-                        }]
-                    }
-                ]
+                            content: '### SERVIDOR TESTES | Configurações'
+                        },
+                        {
+                            type: ComponentType.Separator, // Linha divisória
+                        },
+                        {
+                            type: ComponentType.Section,
+                            custom_id: 'section_interface',
+                            accessory: {
+                                type: ComponentType.Button,
+                                style: ButtonStyle.Primary,
+                                label: 'Editar',
+                                custom_id: 'edit_interface_button',
+                                emoji: { name: '⚙️' }
+                            },
+                            components: [{
+                                type: ComponentType.TextDisplay,
+                                content: '**Interface do Sistema**\nAltere aqui configurações visuais do bot.'
+                            }]
+                        },
+                        {
+                            type: ComponentType.Section,
+                            custom_id: 'section_register',
+                            accessory: {
+                                type: ComponentType.Button,
+                                style: ButtonStyle.Secondary,
+                                label: 'Premium',
+                                custom_id: 'locked_register_button',
+                                emoji: { name: '⭐' },
+                                disabled: true
+                            },
+                            components: [{
+                                type: ComponentType.TextDisplay,
+                                content: '**Sistema de Registro**\nConfigure todo o sistema de registro.'
+                            }]
+                        }
+                    ]
+                }]
             },
+            // 3. ActionRow externa para botões globais (se necessário)
             {
                 type: ComponentType.ActionRow,
                 components: [
                     {
-                        type: ComponentType.Section,
-                        // CORREÇÃO FINAL: Adicionando o custom_id exigido pela API na Section
-                        custom_id: 'config_section_role',
-                        accessory: {
-                            type: ComponentType.Button,
-                            style: ButtonStyle.Primary,
-                            label: 'Editar',
-                            custom_id: 'edit_role_button',
-                        },
-                        components: [{
-                            type: ComponentType.TextDisplay,
-                            content: `**Sistema de Registro**\nConfigure todo o sistema de registro, incluindo cargos e canais.`
-                        }]
-                    }
-                ]
-            },
-            // ActionRow para botões desabilitados "Premium", como na imagem
-            {
-                type: ComponentType.ActionRow,
-                components: [
+                        type: ComponentType.Button,
+                        style: ButtonStyle.Success,
+                        label: 'Salvar Tudo',
+                        custom_id: 'save_all_button',
+                    },
                     {
-                        type: ComponentType.Section,
-                        custom_id: 'config_section_premium_example',
-                        accessory: {
-                            type: ComponentType.Button,
-                            style: ButtonStyle.Secondary,
-                            label: 'Premium',
-                            custom_id: 'premium_button_locked',
-                            emoji: { name: '⚙️' },
-                            disabled: true,
-                        },
-                        components: [{
-                            type: ComponentType.TextDisplay,
-                            content: `**Sistema de Baú**\nGerencie os itens do baú, canais de logs e ative o sistema.`
-                        }]
+                        type: ComponentType.Button,
+                        style: ButtonStyle.Danger,
+                        label: 'Sair',
+                        custom_id: 'exit_config_button',
                     }
                 ]
             }
