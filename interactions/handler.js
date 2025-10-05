@@ -1,63 +1,77 @@
-// interactions/handler.js
+// Ficheiro: interactions/handler.js
 
-// Seus imports existentes...
-const { handleTicketButton, handleTicketModal } = require('./ticket_handler');
-// ... outros imports
+const { Collection } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 
-// Novos imports para o sistema de configuração
-const { 
-    showMainMenu, 
-    showTicketDashboard,
-    // Importe os outros dashboards aqui quando criá-los
-} = require('../views/config_views');
-const { handleConfigButton, handleConfigModal } = require('./config_handler');
+const buttonHandlers = new Collection();
+const modalHandlers = new Collection();
+
+// Função para carregar handlers dinamicamente
+async function loadHandlers(client) {
+    const handlerFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('_handler.js') && file !== 'handler.js');
+
+    for (const file of handlerFiles) {
+        const handlerModule = require(path.join(__dirname, file));
+        
+        // Assumindo que cada módulo exporta um array de handlers
+        if (Array.isArray(handlerModule)) {
+            handlerModule.forEach(handler => {
+                if (handler.customId && typeof handler.execute === 'function') {
+                    if (file.includes('ticket') || file.includes('absence') || file.includes('approval') || file.includes('registration') || file.includes('ponto') || file.includes('dev_panel') || file.includes('uniformes')) {
+                         buttonHandlers.set(handler.customId, handler);
+                    }
+                }
+            });
+        } else if (handlerModule.handleModal) {
+            // Para handlers de modal
+            const modalPrefix = file.split('_')[0];
+            modalHandlers.set(modalPrefix, handlerModule.handleModal);
+        }
+    }
+    console.log('[INFO] Todos os handlers de interação foram carregados.');
+}
+
 
 async function handleInteraction(interaction) {
-    if (interaction.isChatInputCommand()) {
-        // ... seu código de handler de comando
-    } 
-    
-    else if (interaction.isButton()) {
-        const customId = interaction.customId;
+    if (interaction.isCommand()) {
+        const command = interaction.client.commands.get(interaction.commandName);
+        if (!command) return;
 
-        // Roteador do Painel de Configuração
-        if (customId.startsWith('config_')) {
-            if (customId.startsWith('config_menu_')) {
-                switch (customId) {
-                    case 'config_menu_main':
-                        await showMainMenu(interaction, true);
-                        break;
-                    case 'config_menu_ticket':
-                        await showTicketDashboard(interaction);
-                        break;
-                    // Adicione os outros cases para os outros dashboards
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(error);
+            await interaction.reply({ content: 'Ocorreu um erro ao executar este comando!', ephemeral: true });
+        }
+    } else if (interaction.isButton()) {
+        // Procura por um handler que corresponda exatamente ou através de uma função
+        const handler = Array.from(buttonHandlers.values()).find(h => 
+            (typeof h.customId === 'string' && h.customId === interaction.customId) ||
+            (typeof h.customId === 'function' && h.customId(interaction.customId))
+        );
+
+        if (handler) {
+            try {
+                await handler.execute(interaction);
+            } catch (error) {
+                console.error(`Erro ao executar o handler de botão para ${interaction.customId}:`, error);
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: 'Ocorreu um erro ao processar esta ação.', ephemeral: true });
                 }
-            } else {
-                // Chama o handler para os botões "Alterar"
-                await handleConfigButton(interaction);
             }
-            return;
         }
-
-        // Seus outros handlers de botões...
-        if (customId.startsWith('ticket_')) {
-            // ...
-        }
-    } 
-    
-    else if (interaction.isModalSubmit()) {
-        const customId = interaction.customId;
-
-        if (customId.startsWith('modal_')) {
-            await handleConfigModal(interaction);
-            return;
-        }
-
-        // Seus outros handlers de modais...
-        if (customId.startsWith('ticket_')) {
-            // ...
+    } else if (interaction.isModalSubmit()) {
+        const modalPrefix = interaction.customId.split('_')[0];
+        const handler = modalHandlers.get(modalPrefix);
+        if (handler) {
+            try {
+                await handler(interaction);
+            } catch (error) {
+                console.error(`Erro ao executar o handler de modal para ${interaction.customId}:`, error);
+            }
         }
     }
 }
 
-module.exports = { handleInteraction };
+module.exports = { loadHandlers, handleInteraction };

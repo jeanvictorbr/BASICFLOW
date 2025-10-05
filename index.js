@@ -1,16 +1,18 @@
-// index.js
 require('dotenv-flow').config();
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const { handleInteraction } = require('./interactions/handler'); // Usando o handler unificado
+const connectToDatabase = require('./database/db');
+const interactionHandler = require('./interactions/handler');
+const absenceChecker = require('./tasks/absence_checker');
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent, // Adicione a intent que faltava
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildPresences,
     ],
 });
 
@@ -24,20 +26,23 @@ for (const file of commandFiles) {
     if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
     } else {
-        console.log(`[AVISO] O comando em ${filePath} está a faltar a propriedade "data" ou "execute".`);
+        console.log(`[AVISO] O comando em ${filePath} está faltando a propriedade "data" ou "execute".`);
     }
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`[INFO] Bot ${client.user.tag} está online!`);
+    
+    // Inicia a tarefa de verificação de ausências
+    absenceChecker(client);
 });
 
-// Listener unificado para todas as interações
 client.on('interactionCreate', async interaction => {
     try {
-        await handleInteraction(interaction);
+        await interactionHandler.handleInteraction(interaction);
     } catch (error) {
         console.error('Erro ao manusear a interação:', error);
+        // Garante que o usuário receba um feedback em caso de erro
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp({ content: 'Ocorreu um erro ao processar a sua ação!', ephemeral: true });
         } else {
@@ -46,5 +51,12 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-
-client.login(process.env.BOT_TOKEN);
+(async () => {
+    try {
+        // A conexão com o banco de dados não é mais uma função, então removemos a chamada
+        await interactionHandler.loadHandlers(client);
+        await client.login(process.env.DISCORD_TOKEN);
+    } catch (error) {
+        console.error('Falha na inicialização da base de dados ou handlers:', error);
+    }
+})();
