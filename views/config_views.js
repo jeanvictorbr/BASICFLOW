@@ -1,4 +1,4 @@
-// Ficheiro: views/config_views.js (VERSÃO CORRIGIDA COM ESTILO V2)
+// Ficheiro: views/config_views.js (VERSÃO FINAL CORRIGIDA E COM ESTILO V2)
 
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const db = require('../database/db.js');
@@ -48,19 +48,17 @@ async function getConfigDashboardPayload(guild, userId) {
     return { embeds: [embed], components: rows, ephemeral: true };
 }
 
-
-// --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria ---
+// --- FUNÇÃO SECUNDÁRIA: Gera as TELAS de cada categoria (ESTILO V2) ---
 async function getCategoryPayload(guild, category) {
-    const settings = await db.get('SELECT * FROM guild_id = $1', [guild.id]);
+    // CORREÇÃO CRÍTICA DA QUERY SQL
+    const settings = await db.get('SELECT * FROM guild_settings WHERE guild_id = $1', [guild.id]);
     
     const embed = new EmbedBuilder()
         .setColor('#2c9e8d')
         .setTimestamp();
         
     const components = [];
-    let description = '';
 
-    // Mapeamento das configurações para cada categoria
     const categoryMappings = {
         registration: {
             title: '📝 Configurações de Registo',
@@ -105,33 +103,33 @@ async function getCategoryPayload(guild, category) {
     if (currentCategory) {
         embed.setTitle(currentCategory.title);
         
-        // Constrói a descrição e as linhas de botões
-        let rowButtons = [];
+        let rowButtons = new ActionRowBuilder();
+        const fields = [];
+
         for (const setting of currentCategory.settings) {
-            // Adiciona a linha de texto à descrição do embed
-            description += `**${setting.label}:** ${formatStatus(settings, setting.key, setting.type)}\n`;
-            
-            // Adiciona o botão à linha de botões
-            rowButtons.push(
+            // Adiciona a informação como um campo "inline" no embed
+            fields.push({
+                name: `**${setting.label}**`,
+                value: formatStatus(settings, setting.key, setting.type),
+                inline: true
+            });
+
+            // Adiciona um botão correspondente na linha de botões
+            rowButtons.addComponents(
                 new ButtonBuilder()
                     .setCustomId(setting.buttonId)
                     .setLabel(`Alterar ${setting.label}`)
                     .setStyle(ButtonStyle.Primary)
             );
-            
-            // O Discord permite no máximo 5 botões por linha (ActionRow)
-            if (rowButtons.length === 5) {
-                components.push(new ActionRowBuilder().addComponents(rowButtons));
-                rowButtons = [];
-            }
-        }
-        
-        // Adiciona os botões restantes se houver algum
-        if (rowButtons.length > 0) {
-            components.push(new ActionRowBuilder().addComponents(rowButtons));
         }
 
-        embed.setDescription(description);
+        // Adiciona um campo em branco se o número de campos for ímpar, para manter o alinhamento
+        if (fields.length % 3 === 2) {
+            fields.push({ name: '\u200B', value: '\u200B', inline: true });
+        }
+        
+        embed.setFields(fields);
+        components.push(rowButtons);
     }
     
     // Botão de Voltar
