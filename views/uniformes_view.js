@@ -1,96 +1,44 @@
-// Ficheiro: views/uniformes_view.js (VERSÃO FINAL CORRIGIDA)
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../database/db');
 
-async function getDashboardStats(guildId) {
-    const itemCountResult = await db.query('SELECT COUNT(*) FROM vestuario_items WHERE guild_id = $1', [guildId]);
-    const configResult = await db.query('SELECT showcase_channel_id FROM vestuario_configs WHERE guild_id = $1', [guildId]);
+async function getUniformesPanelPayload(guildId, selectedUniformId = null) {
+    const embed = new EmbedBuilder();
     
-    const itemCount = itemCountResult.rows[0]?.count || '0';
-    const channelId = configResult.rows[0]?.showcase_channel_id;
+    // Busca todos os uniformes para popular o menu
+    const allUniformes = await db.all('SELECT id, name FROM vestuario_items WHERE guild_id = $1 ORDER BY name ASC', [guildId]);
 
-    return { itemCount, channelId };
-}
-
-async function showConfigPanel(interaction) {
-    const replyMethod = interaction.replied || interaction.deferred ? 'editReply' : 'reply';
-    
-    const stats = await getDashboardStats(interaction.guild.id);
-    const channelMention = stats.channelId ? `<#${stats.channelId}>` : '`Nenhum canal definido`';
-
-    const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle('👔 Painel de Gestão de Uniformes')
-        .setDescription('Utilize os botões abaixo para gerenciar os uniformes da sua organização.')
-        .addFields(
-            { name: 'Uniformes Cadastrados', value: stats.itemCount, inline: true },
-            { name: 'Canal da Vitrine', value: channelMention, inline: true }
-        );
-
-    const row = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder().setCustomId('uniformes_add_item').setLabel('Adicionar Uniforme').setStyle(ButtonStyle.Success).setEmoji('➕'),
-            new ButtonBuilder().setCustomId('uniformes_edit_remove_item').setLabel('Editar/Remover').setStyle(ButtonStyle.Secondary).setEmoji('📝'),
-            new ButtonBuilder().setCustomId('uniformes_set_channel').setLabel('Definir Canal Vitrine').setStyle(ButtonStyle.Primary).setEmoji('📢')
-        );
-
-    await interaction[replyMethod]({ embeds: [embed], components: [row], ephemeral: true }).catch(() => {});
-}
-
-async function updateShowcase(client, guildId) {
-    const configRes = await db.query('SELECT * FROM vestuario_configs WHERE guild_id = $1', [guildId]);
-    if (configRes.rowCount === 0) return;
-
-    const { showcase_channel_id, showcase_message_id } = configRes.rows[0];
-    if (!showcase_channel_id) return;
-
-    const channel = await client.channels.fetch(showcase_channel_id).catch(() => null);
-    if (!channel) {
-        await db.query('DELETE FROM vestuario_configs WHERE guild_id = $1', [guildId]);
-        return;
+    if (allUniformes.length === 0) {
+        embed.setColor('#E74C3C').setTitle('👕 Uniformes').setDescription('Nenhum uniforme cadastrado neste servidor.');
+        return { embeds: [embed] };
     }
 
-    const itemsRes = await db.query('SELECT id, nome FROM vestuario_items WHERE guild_id = $1 ORDER BY nome', [guildId]);
-    const items = itemsRes.rows;
-
-    const embed = new EmbedBuilder()
-        .setColor('#2c3e50')
-        .setTitle('👕 Vestiário da Organização')
-        .setDescription('Selecione um uniforme no menu abaixo para ver a imagem e copiar os códigos.')
-        .setFooter({ text: 'Aguardando seleção de uniforme...' });
-
-    const components = [];
-
-    if (items.length > 0) {
-        const itemOptions = items.map(item => ({
-            label: item.nome,
-            // *** INÍCIO DA CORREÇÃO ***
-            value: `uniformes_showcase_select:${item.id}`,
-            // *** FIM DA CORREÇÃO ***
-        }));
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('uniformes_showcase_select')
-            .setPlaceholder('Selecione um uniforme...')
-            .addOptions(itemOptions.slice(0, 25));
-
-        components.push(new ActionRowBuilder().addComponents(selectMenu));
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('uniformes:select:view')
+        .setPlaceholder('Selecione um uniforme para visualizar...')
+        .addOptions(allUniformes.map(u => ({
+            label: u.name,
+            value: u.id.toString(),
+            default: selectedUniformId ? u.id.toString() === selectedUniformId : false,
+        })));
+        
+    if (selectedUniformId) {
+        // Se um uniforme foi selecionado, busca os detalhes completos
+        const selectedUniform = await db.get('SELECT * FROM vestuario_items WHERE id = $1', [selectedUniformId]);
+        embed
+            .setTitle(`👕 ${selectedUniform.name}`)
+            .setImage(selectedUniform.image_url)
+            .addFields({
+                name: 'Códigos dos Itens',
+                value: '`' + selectedUniform.item_codes.join('`\n`') + '`'
+            })
+            .setColor('#3498DB');
     } else {
-        embed.setDescription('Nenhum uniforme foi configurado ainda. Use `/uniformesconfig` para começar.');
+        // Estado inicial do painel
+        embed.setColor('#95A5A6').setTitle('👕 Catálogo de Uniformes').setDescription('Selecione um uniforme no menu abaixo para ver os detalhes e códigos.');
     }
 
-    try {
-        let message = showcase_message_id ? await channel.messages.fetch(showcase_message_id).catch(() => null) : null;
-
-        if (message) {
-            await message.edit({ embeds: [embed], components });
-        } else {
-            const newMessage = await channel.send({ embeds: [embed], components });
-            await db.query('UPDATE vestuario_configs SET showcase_message_id = $1 WHERE guild_id = $2', [newMessage.id, guildId]);
-        }
-    } catch (error) {
-        console.error("Erro ao atualizar a vitrine:", error);
-    }
+    const components = [new ActionRowBuilder().addComponents(selectMenu)];
+    return { embeds: [embed], components };
 }
 
-module.exports = { showConfigPanel, updateShowcase };
+module.exports = { getUniformesPanelPayload };
